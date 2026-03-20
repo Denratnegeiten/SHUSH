@@ -9,13 +9,13 @@ from utils import Camera, check_vision, has_line_of_sight
 
 pygame.init()
 
-display_screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.NOFRAME)
+display_screen = pygame.display.set_mode((LOGICAL_WIDTH, LOGICAL_HEIGHT), pygame.FULLSCREEN | pygame.NOFRAME)
 pygame.display.set_caption("SHUSH - Ultimate Stealth")
 clock = pygame.time.Clock()
 
 game_surface = pygame.Surface((LOGICAL_WIDTH, LOGICAL_HEIGHT))
 
-is_fullscreen = False
+is_fullscreen = True
 
 font = pygame.font.SysFont("Arial", 30, bold=True)
 money_font = pygame.font.SysFont("Arial", 26, bold=True) 

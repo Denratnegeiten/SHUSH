@@ -5,7 +5,7 @@ from settings import WINDOW_WIDTH, WINDOW_HEIGHT
 
 def run_editor():
     pygame.init()
-    screen = pygame.display.set_mode((1536, 768)) 
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.NOFRAME)
     pygame.display.set_caption("SHUSH - Ultimate Level Editor")
     clock = pygame.time.Clock()
 
@@ -60,7 +60,7 @@ def run_editor():
 
     font = pygame.font.SysFont("Arial", 22)
     running = True
-    is_fullscreen = False
+    is_fullscreen = True
     save_msg, save_msg_timer, msg_color = "", 0, (0, 255, 0)
 
     while running:
