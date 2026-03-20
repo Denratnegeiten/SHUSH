@@ -30,43 +30,63 @@ class Level:
 
         for tile_id, filename in data['tiles'].items():
             img_path = os.path.join('assets', 'tiles', filename)
-            self.tile_images[int(tile_id)] = pygame.image.load(img_path).convert_alpha()
+            raw_img = pygame.image.load(img_path).convert_alpha()
+            # ЖЕСТКО СЖИМАЕМ ВСЕ СТЕНЫ В ИГРЕ ДО 64x64
+            self.tile_images[int(tile_id)] = pygame.transform.scale(raw_img, (64, 64))
 
         for sprite_id, filename in data.get('sprites', {}).items():
             img_path = os.path.join('assets', 'sprites', filename)
             img = pygame.image.load(img_path).convert_alpha()
-            # УВЕЛИЧИВАЕМ КАРТИНКИ В 2 РАЗА ПРИ ЗАГРУЗКЕ
             self.sprite_images[sprite_id] = pygame.transform.scale(img, (img.get_width() * 2, img.get_height() * 2))
 
         return data
 
     def build_physics(self):
-        # Коллизии для стен
+        self.walls = []
+        self.hiding_spots = []
+        self.loot = []
+        
+        # 1. Читаем тайлы
         for row_index, row in enumerate(self.level_data.get('map', [])):
             for col_index, tile_id in enumerate(row):
-                if tile_id == 2:
-                    rect = pygame.Rect(col_index * 96, row_index * 64, 96, 64)
+                filename = self.level_data.get('tiles', {}).get(str(tile_id), "").lower()
+                
+                if "wall" in filename:
+                    # УБРАЛИ w и h. ТЕПЕРЬ ФИЗИКА СТРОГО 64x64.
+                    rect = pygame.Rect(col_index * 64, row_index * 64, 64, 64)
                     self.walls.append(rect)
 
-        # Хитбоксы для объектов
+        # 2. Читаем объекты (мебель, картины) - ЭТУ ЧАСТЬ ОСТАВЬ КАК БЫЛА У ТЕБЯ
+
+        # 2. Читаем объекты (мебель, картины)
         for obj in self.level_data.get('objects', []):
             x, y = obj['pos']
+            filename = self.level_data.get('sprites', {}).get(obj['sprite_id'], "").lower()
             
-            # Получаем реальные размеры увеличенного спрайта
             img = self.sprite_images.get(obj['sprite_id'])
             w = img.get_width() if img else 64
             h = img.get_height() if img else 64
-            
             rect = pygame.Rect(x, y, w, h)
+            
+            if "vase" in filename:
+                obj['type'] = 'vase'
+                obj['value'] = 1000
+            elif "picture" in filename:
+                obj['type'] = 'picture'
+                obj['value'] = 5000
+            elif "sofa" in filename or "couch" in filename or "bush" in filename:
+                obj['type'] = 'hiding_spot'
+                obj['value'] = 0
+            else:
+                obj['type'] = 'decor' 
+                obj['value'] = 0
+                
             obj['rect'] = rect 
 
             if obj['type'] in ['vase', 'picture']:
-                self.loot.append(rect)
-            elif obj['type'] in ['bush', 'sofa']:
-                self.hiding_spots.append(rect) # Вся зона укрытия
-                
-                # ХИТРОСТЬ: Делаем твердой только НИЖНЮЮ ТРЕТЬ объекта
-                # Теперь игрок может зайти "за спинку" дивана
+                self.loot.append(obj) 
+            elif obj['type'] == 'hiding_spot':
+                self.hiding_spots.append(rect)
                 wall_rect = pygame.Rect(x, y + h - (h // 3), w, h // 3)
                 self.walls.append(wall_rect)
 
@@ -74,27 +94,26 @@ class Level:
         pass
 
     def draw(self, screen, camera):
-        # ОПТИМИЗАЦИЯ (Culling): Вычисляем, какие тайлы видит камера, чтобы не рисовать все 10000 штук
-        start_col = max(0, int(-camera.camera.x // 96))
-        # Используем 1536 (примерная ширина экрана), чтобы рисовать с запасом
-        end_col = start_col + int(1536 // 96) + 2 
+        screen_w, screen_h = screen.get_size()
+        
+        # Отрисовка тоже пересчитывается по сетке 64x64
+        start_col = max(0, int(-camera.camera.x // 64))
+        end_col = start_col + int(screen_w // 64) + 3 
         
         start_row = max(0, int(-camera.camera.y // 64))
-        end_row = start_row + int(768 // 64) + 2
+        end_row = start_row + int(screen_h // 64) + 3
 
-        # 1. Рисуем только видимый кусок пола и стен
         map_data = self.level_data.get('map', [])
         for row_index in range(start_row, min(end_row, len(map_data))):
             row = map_data[row_index]
             for col_index in range(start_col, min(end_col, len(row))):
                 tile_id = row[col_index]
                 if tile_id in self.tile_images:
-                    x = col_index * 96
+                    # Умножаем координаты на 64!
+                    x = col_index * 64
                     y = row_index * 64
-                    # СДВИГАЕМ ТАЙЛ КАМЕРОЙ
                     screen.blit(self.tile_images[tile_id], camera.apply_point((x, y)))
 
-        # 2. Рисуем объекты (диваны, картины) со сдвигом камеры
         for obj in self.level_data.get('objects', []):
             if obj['sprite_id'] in self.sprite_images:
                 screen.blit(self.sprite_images[obj['sprite_id']], camera.apply_point(obj['pos']))

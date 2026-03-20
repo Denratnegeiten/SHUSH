@@ -23,6 +23,9 @@ class Player:
         self.rect = pygame.Rect(x, y, TILE_SIZE - 12, TILE_SIZE - 12)
         self.x, self.y = float(self.rect.x), float(self.rect.y)
         
+        # ТУТ СЧЕТЧИК ДЕНЕГ
+        self.total_money_value = 0
+        
         # Загружаем файлы НАПРЯМУЮ, минуя utils.py
         # Если файла нет, игра моментально вылетит с ошибкой FileNotFoundError
         def load_and_scale(filename):
@@ -125,80 +128,155 @@ class Player:
             n['r'] += 7; n['a'] -= 8
             if n['a'] <= 0: self.active_noises.remove(n)
 
-class Guard:
-    def __init__(self, g_type, x, y, waypoints=None, bounds=None):
-        self.rect = pygame.Rect(x, y, TILE_SIZE - 8, TILE_SIZE - 8)
-        self.type = g_type
-        self.angle = 0
-        self.bullets = []
-        self.timer = 0
-        self.wp = waypoints; self.idx = 0; self.bounds = bounds
-        self.target = self.wp[0] if self.wp else (x, y)
-        
-        stats = {
-            'normal': (2.2, 4.5, GUARD_NORMAL),
-            'fast':   (3.8, 7.0, GUARD_FAST),
-            'taser':  (1.8, 3.5, GUARD_TASER),
-            'random': (2.0, 4.5, GUARD_RANDOM),
-            'swat':   (5.0, 5.0, GUARD_SWAT)
-        }
-        self.spd, self.chase_spd, self.color = stats.get(g_type, stats['normal'])
+class Bullet:
+    def __init__(self, x, y, angle):
+        self.rect = pygame.Rect(x, y, 8, 8)
+        self.x, self.y = float(x), float(y)
+        self.angle = angle
+        self.speed = 12
 
-    def update(self, obstacles):
-        if self.type == 'swat': return
-        dx, dy = self.target[0] - self.rect.centerx, self.target[1] - self.rect.centery
-        dist = math.hypot(dx, dy)
-        if dist < 5:
-            if self.type == 'random' and self.bounds:
-                self.target = (random.randint(self.bounds.left, self.bounds.right), 
-                               random.randint(self.bounds.top, self.bounds.bottom))
-            elif self.wp:
-                self.idx = (self.idx + 1) % len(self.wp)
-                self.target = self.wp[self.idx]
-        else:
-            self.rect.x += int((dx/dist)*self.spd)
-            self.rect.y += int((dy/dist)*self.spd)
-            self.angle = math.atan2(dy, dx)
-
-    def chase(self, p_rect, obstacles):
-        dx, dy = p_rect.centerx - self.rect.centerx, p_rect.centery - self.rect.centery
-        dist = math.hypot(dx, dy)
-        if dist > 0:
-            vx, vy = (dx/dist)*self.chase_spd, (dy/dist)*self.chase_spd
-            self.angle = math.atan2(dy, dx)
-            self.rect.x += int(vx)
-            for o in obstacles:
-                if self.rect.colliderect(o):
-                    if vx > 0: self.rect.right = o.left
-                    else: self.rect.left = o.right
-            self.rect.y += int(vy)
-            for o in obstacles:
-                if self.rect.colliderect(o):
-                    if vy > 0: self.rect.bottom = o.top
-                    else: self.rect.top = o.bottom
-        
-        if self.type == 'taser':
-            self.timer -= 1
-            if self.timer <= 0 and dist < 450:
-                self.bullets.append(TaserBullet(self.rect.centerx, self.rect.centery, p_rect.centerx, p_rect.centery))
-                self.timer = 100
-
-    def draw_vision(self, surf, walls, camera):
-        if self.type == 'swat': return
-        gx, gy = self.rect.center
-        pts = [(gx, gy)]
-        start, fov, dist = self.angle - 0.6, 1.2, 400
-        for i in range(20):
-            ang = start + (i/19)*fov
-            ex, ey = gx + dist*math.cos(ang), gy + dist*math.sin(ang)
-            for w in walls:
-                cl = w.clipline((gx, gy), (ex, ey))
-                if cl:
-                    d = math.hypot(cl[0][0]-gx, cl[0][1]-gy)
-                    if d < dist: ex, ey = cl[0]
-            pts.append((ex, ey))
-        pygame.draw.polygon(surf, VISION_COLOR, [camera.apply_point(p) for p in pts])
+    def update(self):
+        self.x += math.cos(self.angle) * self.speed
+        self.y += math.sin(self.angle) * self.speed
+        self.rect.x, self.rect.y = int(self.x), int(self.y)
 
     def draw(self, screen, camera):
-        pygame.draw.rect(screen, self.color, camera.apply(self.rect))
-        pygame.draw.rect(screen, (255,255,255), camera.apply(self.rect), 2)
+        # Пуля тайзера (голубая точка)
+        pygame.draw.circle(screen, (0, 255, 255), camera.apply_point(self.rect.center), 5)
+
+class Guard:
+    def __init__(self, g_type, x, y, waypoints=None, bounds=None):
+        self.type = g_type
+        self.rect = pygame.Rect(x, y, 40, 40)
+        self.x, self.y = float(x), float(y)
+        
+        self.speed = 2.0
+        self.vision_range = 450
+        self.vision_fov = 1.2
+        
+        if self.type == 'fast': self.speed, self.vision_range = 3.5, 350
+        elif self.type == 'taser': self.speed = 1.6
+        elif self.type == 'random': self.speed = 2.5
+        elif self.type == 'swat': self.speed, self.vision_range = 3.2, 550
+
+        # --- ЗАГРУЗКА СПРАЙТОВ ОХРАННИКОВ ---
+        self.poses = {}
+        prefix = "omon" if self.type == "swat" else "cop"
+        for d in ["up", "down", "left", "right"]:
+            try:
+                img = pygame.image.load(os.path.join('assets', 'sprites', f"{prefix}_{d}.png")).convert_alpha()
+                # Увеличиваем их, чтобы были под размер игрока
+                self.poses[d] = pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
+            except FileNotFoundError:
+                # Заглушка, если файла нет
+                surf = pygame.Surface((40, 40))
+                surf.fill((255,0,0) if self.type=='taser' else (100,100,255))
+                self.poses[d] = surf
+
+        self.cur_pose = "down"
+        self.angle = random.uniform(0, math.pi * 2)
+        self.bullets = []
+        self.shoot_cooldown = 0
+        self.wait_timer = 0
+        self.target_pos = self.get_new_target()
+
+    def get_new_target(self):
+        # Охранник выбирает случайную точку в радиусе 150-400 пикселей от себя
+        ang = random.uniform(0, math.pi * 2)
+        dist = random.uniform(150, 400)
+        return (self.x + math.cos(ang) * dist, self.y + math.sin(ang) * dist)
+
+    def update(self, obstacles):
+        if self.shoot_cooldown > 0:
+            self.shoot_cooldown -= 1
+
+        # Расстояние до выбранной точки
+        dx = self.target_pos[0] - self.x
+        dy = self.target_pos[1] - self.y
+        dist = math.hypot(dx, dy)
+        
+        if dist < 10:
+            # Дошли до точки! Стоим и оглядываемся
+            self.wait_timer -= 1
+            if self.wait_timer <= 0:
+                self.target_pos = self.get_new_target()
+                self.wait_timer = random.randint(30, 120) # Ждем от 0.5 до 2 секунд
+        else:
+            # Идем к точке
+            self.angle = math.atan2(dy, dx)
+            self.move(math.cos(self.angle) * self.speed, math.sin(self.angle) * self.speed, obstacles)
+
+    def chase(self, player_rect, obstacles):
+        # Бежим прямо за игроком
+        dx = player_rect.centerx - self.x
+        dy = player_rect.centery - self.y
+        self.angle = math.atan2(dy, dx)
+        
+        # Логика стрелка (Taser)
+        if self.type == 'taser' and math.hypot(dx, dy) < 350 and self.shoot_cooldown <= 0:
+            self.bullets.append(Bullet(self.rect.centerx, self.rect.centery, self.angle))
+            self.shoot_cooldown = 60 # Стреляет раз в секунду
+        
+        self.move(math.cos(self.angle) * self.speed, math.sin(self.angle) * self.speed, obstacles)
+
+    def move(self, dx, dy, walls):
+        self.x += dx
+        self.rect.x = int(self.x)
+        hit_wall = False
+        
+        for w in walls:
+            if self.rect.colliderect(w):
+                if dx > 0: self.rect.right = w.left
+                else: self.rect.left = w.right
+                self.x = float(self.rect.x)
+                hit_wall = True
+
+        self.y += dy
+        self.rect.y = int(self.y)
+        for w in walls:
+            if self.rect.colliderect(w):
+                if dy > 0: self.rect.bottom = w.top
+                else: self.rect.top = w.bottom
+                self.y = float(self.rect.y)
+                hit_wall = True
+                
+        # Если уперлись в стену или диван - сразу ищем новую цель
+        if hit_wall:
+            self.target_pos = self.get_new_target()
+
+    def draw(self, screen, camera):
+        # Вычисляем, куда смотрит охранник (чтобы повернуть спрайт)
+        deg = math.degrees(self.angle) % 360
+        if 45 <= deg < 135: self.cur_pose = "down"
+        elif 135 <= deg < 225: self.cur_pose = "left"
+        elif 225 <= deg < 315: self.cur_pose = "up"
+        else: self.cur_pose = "right"
+        
+        img = self.poses[self.cur_pose]
+        pos = camera.apply(self.rect)
+        
+        # Центрируем картинку относительно хитбокса (как у игрока)
+        offset_x = (self.rect.width - img.get_width()) // 2
+        offset_y = self.rect.height - img.get_height()
+        screen.blit(img, (pos.x + offset_x, pos.y + offset_y))
+
+    def draw_vision(self, surf, walls, camera):
+        # Красивый желтый конус зрения
+        points = [camera.apply_point(self.rect.center)]
+        
+        # Бросаем лучи, чтобы они разбивались о стены
+        for i in range(-3, 4):
+            ang = self.angle + (i * (self.vision_fov / 6))
+            rx, ry = self.rect.center
+            for step in range(0, int(self.vision_range), 25):
+                nx = rx + math.cos(ang) * 25
+                ny = ry + math.sin(ang) * 25
+                
+                # Проверка столкновения со стеной
+                if any(w.collidepoint(nx, ny) for w in walls):
+                    break
+                rx, ry = nx, ny
+            points.append(camera.apply_point((rx, ry)))
+            
+        if len(points) > 2:
+            pygame.draw.polygon(surf, (255, 255, 100, 60), points)
