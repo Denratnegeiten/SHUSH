@@ -10,23 +10,19 @@ class Camera:
         self.world_height = world_height
 
     def apply(self, entity_rect):
-        # Сдвигает хитбокс (Rect) относительно камеры
         return entity_rect.move(self.camera.topleft)
 
     def apply_point(self, point):
-        # Сдвигает простые координаты x,y (нужно для звуковых волн и лута)
         return (point[0] + self.camera.x, point[1] + self.camera.y)
 
     def update(self, target_rect):
-        # Центрируем камеру на персонаже
         x = -target_rect.centerx + int(LOGICAL_WIDTH / 2)
         y = -target_rect.centery + int(LOGICAL_HEIGHT / 2)
 
-        # Ограничиваем скроллинг, чтобы камера не показывала черноту за краями карты
-        x = min(0, x)  # Левый край
-        y = min(0, y)  # Верхний край
-        x = max(-(self.world_width - LOGICAL_WIDTH), x)   # Правый край
-        y = max(-(self.world_height - LOGICAL_HEIGHT), y) # Нижний край
+        x = min(0, x)
+        y = min(0, y)
+        x = max(-(self.world_width - LOGICAL_WIDTH), x)
+        y = max(-(self.world_height - LOGICAL_HEIGHT), y)
 
         self.camera = pygame.Rect(x, y, self.world_width, self.world_height)
 
@@ -50,7 +46,6 @@ def get_tile(sheet, x, y, tw=16, th=16):
     rect = pygame.Rect(x * tw, y * th, tw, th)
     surf = pygame.Surface((tw, th), pygame.SRCALPHA)
     surf.blit(sheet, (0, 0), rect)
-    # Масштабируем до игрового TILE_SIZE
     return pygame.transform.scale(surf, (TILE_SIZE, TILE_SIZE))
 
 def load_simple_poses(sheet, fw=16, fh=24):
@@ -65,7 +60,6 @@ def load_simple_poses(sheet, fw=16, fh=24):
         "down":  3
     }
     
-    # Масштабируем в 3 раза
     scale_factor = TILE_SIZE // 16
     target_w = fw * scale_factor
     target_h = fh * scale_factor
@@ -99,15 +93,12 @@ def check_vision(player_rect, is_hidden, source_rect, angle, dist, fov, walls):
     px, py = player_rect.center
     sx, sy = source_rect.center
     
-    # Расстояние
     d = math.hypot(px - sx, py - sy)
     if d > dist: return False
     
-    # Угол
     angle_to_p = math.atan2(py - sy, px - sx)
     diff = abs(angle_to_p - angle)
     if diff > math.pi: diff = 2 * math.pi - diff
     if diff > fov / 2: return False
     
-    # Стены
     return has_line_of_sight(source_rect.center, player_rect.center, walls)

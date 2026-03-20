@@ -23,11 +23,8 @@ class Player:
         self.rect = pygame.Rect(x, y, TILE_SIZE - 12, TILE_SIZE - 12)
         self.x, self.y = float(self.rect.x), float(self.rect.y)
         
-        # ТУТ СЧЕТЧИК ДЕНЕГ
         self.total_money_value = 0
         
-        # Загружаем файлы НАПРЯМУЮ, минуя utils.py
-        # Если файла нет, игра моментально вылетит с ошибкой FileNotFoundError
         def load_and_scale(filename):
             path = os.path.join(SPRITES_DIR, filename)
             img = pygame.image.load(path).convert_alpha()
@@ -106,14 +103,11 @@ class Player:
         self.is_hidden = any(s.collidepoint(self.rect.center) for s in hiding_spots)
 
     def draw(self, screen, t_surf, camera):
-        # Если не спрятался - рисуем обычную тень
         if not self.is_hidden:
             pygame.draw.ellipse(screen, (30, 30, 30), camera.apply(self.rect).move(0, 20))
         
-        # КОПИРУЕМ кадр, чтобы не испортить оригинал
         img = self.poses[self.cur_pose].copy() 
         
-        # ЭФФЕКТ МАСКИРОВКИ: Если спрятался, делаем полупрозрачным
         if self.is_hidden:
             img.set_alpha(100) 
             
@@ -141,7 +135,6 @@ class Bullet:
         self.rect.x, self.rect.y = int(self.x), int(self.y)
 
     def draw(self, screen, camera):
-        # Пуля тайзера (голубая точка)
         pygame.draw.circle(screen, (0, 255, 255), camera.apply_point(self.rect.center), 5)
 
 class Guard:
@@ -159,16 +152,13 @@ class Guard:
         elif self.type == 'random': self.speed = 2.5
         elif self.type == 'swat': self.speed, self.vision_range = 3.2, 550
 
-        # --- ЗАГРУЗКА СПРАЙТОВ ОХРАННИКОВ ---
         self.poses = {}
         prefix = "omon" if self.type == "swat" else "cop"
         for d in ["up", "down", "left", "right"]:
             try:
                 img = pygame.image.load(os.path.join('assets', 'sprites', f"{prefix}_{d}.png")).convert_alpha()
-                # Увеличиваем их, чтобы были под размер игрока
                 self.poses[d] = pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
             except FileNotFoundError:
-                # Заглушка, если файла нет
                 surf = pygame.Surface((40, 40))
                 surf.fill((255,0,0) if self.type=='taser' else (100,100,255))
                 self.poses[d] = surf
@@ -181,7 +171,6 @@ class Guard:
         self.target_pos = self.get_new_target()
 
     def get_new_target(self):
-        # Охранник выбирает случайную точку в радиусе 150-400 пикселей от себя
         ang = random.uniform(0, math.pi * 2)
         dist = random.uniform(150, 400)
         return (self.x + math.cos(ang) * dist, self.y + math.sin(ang) * dist)
@@ -190,32 +179,27 @@ class Guard:
         if self.shoot_cooldown > 0:
             self.shoot_cooldown -= 1
 
-        # Расстояние до выбранной точки
         dx = self.target_pos[0] - self.x
         dy = self.target_pos[1] - self.y
         dist = math.hypot(dx, dy)
         
         if dist < 10:
-            # Дошли до точки! Стоим и оглядываемся
             self.wait_timer -= 1
             if self.wait_timer <= 0:
                 self.target_pos = self.get_new_target()
-                self.wait_timer = random.randint(30, 120) # Ждем от 0.5 до 2 секунд
+                self.wait_timer = random.randint(30, 120)
         else:
-            # Идем к точке
             self.angle = math.atan2(dy, dx)
             self.move(math.cos(self.angle) * self.speed, math.sin(self.angle) * self.speed, obstacles)
 
     def chase(self, player_rect, obstacles):
-        # Бежим прямо за игроком
         dx = player_rect.centerx - self.x
         dy = player_rect.centery - self.y
         self.angle = math.atan2(dy, dx)
         
-        # Логика стрелка (Taser)
         if self.type == 'taser' and math.hypot(dx, dy) < 350 and self.shoot_cooldown <= 0:
             self.bullets.append(Bullet(self.rect.centerx, self.rect.centery, self.angle))
-            self.shoot_cooldown = 60 # Стреляет раз в секунду
+            self.shoot_cooldown = 60
         
         self.move(math.cos(self.angle) * self.speed, math.sin(self.angle) * self.speed, obstacles)
 
@@ -240,12 +224,10 @@ class Guard:
                 self.y = float(self.rect.y)
                 hit_wall = True
                 
-        # Если уперлись в стену или диван - сразу ищем новую цель
         if hit_wall:
             self.target_pos = self.get_new_target()
 
     def draw(self, screen, camera):
-        # Вычисляем, куда смотрит охранник (чтобы повернуть спрайт)
         deg = math.degrees(self.angle) % 360
         if 45 <= deg < 135: self.cur_pose = "down"
         elif 135 <= deg < 225: self.cur_pose = "left"
@@ -255,16 +237,13 @@ class Guard:
         img = self.poses[self.cur_pose]
         pos = camera.apply(self.rect)
         
-        # Центрируем картинку относительно хитбокса (как у игрока)
         offset_x = (self.rect.width - img.get_width()) // 2
         offset_y = self.rect.height - img.get_height()
         screen.blit(img, (pos.x + offset_x, pos.y + offset_y))
 
     def draw_vision(self, surf, walls, camera):
-        # Красивый желтый конус зрения
         points = [camera.apply_point(self.rect.center)]
         
-        # Бросаем лучи, чтобы они разбивались о стены
         for i in range(-3, 4):
             ang = self.angle + (i * (self.vision_fov / 6))
             rx, ry = self.rect.center
@@ -272,7 +251,6 @@ class Guard:
                 nx = rx + math.cos(ang) * 25
                 ny = ry + math.sin(ang) * 25
                 
-                # Проверка столкновения со стеной
                 if any(w.collidepoint(nx, ny) for w in walls):
                     break
                 rx, ry = nx, ny

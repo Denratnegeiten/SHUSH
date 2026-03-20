@@ -7,21 +7,17 @@ class Level:
         self.tile_images = {}
         self.sprite_images = {}
         
-        # Списки для физики и логики
         self.walls = []
         self.hiding_spots = []
         self.loot = []
         
-        # 1. СНАЧАЛА ЗАГРУЖАЕМ ДАННЫЕ УРОВНЯ
         self.level_data = self.load_data(level_path)
         
-        # 2. ТЕПЕРЬ БЕРЕМ ИЗ НИХ ЗНАЧЕНИЯ
         self.guards_data = self.level_data.get('guards_data', [])
         
         epos = self.level_data.get('entrance_pos', [96, 64])
         self.entrance_rect = pygame.Rect(epos[0], epos[1], 96, 64) 
 
-        # 3. СТРОИМ ФИЗИКУ СТЕН И УКРЫТИЙ
         self.build_physics()
 
     def load_data(self, path):
@@ -31,7 +27,6 @@ class Level:
         for tile_id, filename in data['tiles'].items():
             img_path = os.path.join('assets', 'tiles', filename)
             raw_img = pygame.image.load(img_path).convert_alpha()
-            # ЖЕСТКО СЖИМАЕМ ВСЕ СТЕНЫ В ИГРЕ ДО 64x64
             self.tile_images[int(tile_id)] = pygame.transform.scale(raw_img, (64, 64))
 
         for sprite_id, filename in data.get('sprites', {}).items():
@@ -46,19 +41,14 @@ class Level:
         self.hiding_spots = []
         self.loot = []
         
-        # 1. Читаем тайлы
         for row_index, row in enumerate(self.level_data.get('map', [])):
             for col_index, tile_id in enumerate(row):
                 filename = self.level_data.get('tiles', {}).get(str(tile_id), "").lower()
                 
                 if "wall" in filename:
-                    # УБРАЛИ w и h. ТЕПЕРЬ ФИЗИКА СТРОГО 64x64.
                     rect = pygame.Rect(col_index * 64, row_index * 64, 64, 64)
                     self.walls.append(rect)
 
-        # 2. Читаем объекты (мебель, картины) - ЭТУ ЧАСТЬ ОСТАВЬ КАК БЫЛА У ТЕБЯ
-
-        # 2. Читаем объекты (мебель, картины)
         for obj in self.level_data.get('objects', []):
             x, y = obj['pos']
             filename = self.level_data.get('sprites', {}).get(obj['sprite_id'], "").lower()
@@ -96,7 +86,6 @@ class Level:
     def draw(self, screen, camera):
         screen_w, screen_h = screen.get_size()
         
-        # Отрисовка тоже пересчитывается по сетке 64x64
         start_col = max(0, int(-camera.camera.x // 64))
         end_col = start_col + int(screen_w // 64) + 3 
         
@@ -109,7 +98,6 @@ class Level:
             for col_index in range(start_col, min(end_col, len(row))):
                 tile_id = row[col_index]
                 if tile_id in self.tile_images:
-                    # Умножаем координаты на 64!
                     x = col_index * 64
                     y = row_index * 64
                     screen.blit(self.tile_images[tile_id], camera.apply_point((x, y)))

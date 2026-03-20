@@ -9,7 +9,6 @@ from utils import Camera, check_vision, has_line_of_sight
 
 pygame.init()
 
-# 1. Глобальные поверхности
 display_screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.NOFRAME)
 pygame.display.set_caption("SHUSH - Ultimate Stealth")
 clock = pygame.time.Clock()
@@ -18,49 +17,38 @@ game_surface = pygame.Surface((LOGICAL_WIDTH, LOGICAL_HEIGHT))
 
 is_fullscreen = False
 
-# ТУТ ДОБАВЛЯЕМ НОВЫЕ ШРИФТЫ ДЛЯ ДЕНЕГ И УМЕНЬШАЕМ СТАРЫЕ
 font = pygame.font.SysFont("Arial", 30, bold=True)
 money_font = pygame.font.SysFont("Arial", 26, bold=True) 
 large_font = pygame.font.SysFont("Arial", 120, bold=True)
 ui_font = pygame.font.SysFont("Arial", 20)
 
-# --- main.py ---
-
-# Сначала добавь новые цвета и размеры шрифтов, если их нет
 RED = (255, 60, 60)
-money_font = pygame.font.SysFont("Arial", 28) # Шрифт для денег, поменьше
-loot_font = pygame.font.SysFont("Arial", 36, bold=True) # Счетчик лута поменьше
-stamina_txt_font = pygame.font.SysFont("Arial", 24) # Стамина поменьше
+money_font = pygame.font.SysFont("Arial", 28)
+loot_font = pygame.font.SysFont("Arial", 36, bold=True)
+stamina_txt_font = pygame.font.SysFont("Arial", 24)
 
 def draw_ui(surf, player, game_state, panic_timer):
-    # 1. Полоска стамины (В правом верхнем углу)
-    s_w, s_h = 200, 20 # ТУТ УМЕНЬШИЛИ РАЗМЕР
+    s_w, s_h = 200, 20
     sx, sy = LOGICAL_WIDTH - s_w - 60, 60
-    pygame.draw.rect(surf, (40, 10, 10), (sx, sy, s_w, s_h)) # Темно-красный фон
+    pygame.draw.rect(surf, (40, 10, 10), (sx, sy, s_w, s_h))
     
     current_w = (player.stamina / STAMINA_MAX) * s_w
-    pygame.draw.rect(surf, (255, 50, 50), (sx, sy, current_w, s_h)) # ТУТ КРАСНАЯ СТАМИНА
-    pygame.draw.rect(surf, (255, 50, 50), (sx, sy, s_w, s_h), 3) # Красная рамка
+    pygame.draw.rect(surf, (255, 50, 50), (sx, sy, current_w, s_h))
+    pygame.draw.rect(surf, (255, 50, 50), (sx, sy, s_w, s_h), 3)
     
-    # Текст стамины
     surf.blit(ui_font.render("STAMINA", True, (255, 50, 50)), (sx + 5, sy + 25))
 
-    # 2. Счет лута и Денег (В левом верхнем углу)
-    # ТУТ КРАСНЫЙ ЦВЕТ И СЧЕТЧИК ЛУТА
     loot_txt = font.render(f"LOOT COLLECTED: {player.score}", True, (255, 50, 50))
     surf.blit(loot_txt, (60, 60))
     
-    # ТУТ ПОКАЗЫВАЕМ СУММУ ДЕНЕГ СНИЗУ
     money_txt = money_font.render(f"${player.total_money_value:,}", True, (255, 50, 50))
     surf.blit(money_txt, (60, 60 + loot_txt.get_height() + 5))
 
-    # 3. Таймер паники
     if game_state == "PANIC":
         sec = max(0, math.ceil(panic_timer / FPS))
         t_img = large_font.render(str(sec), True, (255, 50, 50))
         surf.blit(t_img, (LOGICAL_WIDTH // 2 - t_img.get_width() // 2, 60))
 
-    # ТУТ ПОЛНОСТЬЮ УДАЛЕНЫ ПОДСКАЗКИ УПРАВЛЕНИЯ (WASD и тд)
 
 def run_game(level_id):
     level = Level(f'assets/levels/level_{level_id}.json')
@@ -68,7 +56,6 @@ def run_game(level_id):
     player = Player(level.entrance_rect.centerx, level.entrance_rect.centery)
     camera = Camera(MAP_WIDTH, MAP_HEIGHT)
     
-    # ТУТ УБРАЛИ SWAT СО СТАРТА
     guards = [Guard(g['type'], g.get('x', 0), g.get('y', 0), g.get('waypoints'), g.get('bounds')) 
               for g in level.guards_data if g['type'] != 'swat']
     
@@ -122,7 +109,6 @@ def run_game(level_id):
                 panic_timer -= 1
                 if panic_timer <= 0 and not swat_spawned:
                     swat_spawned = True
-                    # ТУТ ПОЯВЛЯЕТСЯ SWAT ТОЛЬКО КОГДА ТАЙМЕР ВЫШЕЛ
                     for _ in range(4):
                         guards.append(Guard('swat', level.entrance_rect.centerx, level.entrance_rect.centery))
                 
@@ -169,7 +155,6 @@ def run_game(level_id):
         clock.tick(FPS)
 
 def handle_game_events(player, level, guards, game_state):
-    # ТУТ ИСПРАВЛЕН ЧЕРНЫЙ ЭКРАН ПО КРАЯМ В FULLSCREEN
     global is_fullscreen, display_screen, game_surface
     
     for event in pygame.event.get():
@@ -191,7 +176,6 @@ def handle_game_events(player, level, guards, game_state):
                     game_surface = pygame.Surface((LOGICAL_WIDTH, LOGICAL_HEIGHT))
             
             if event.key == pygame.K_e and game_state in ["STEALTH", "PANIC"]:
-                # ТУТ ДОБАВЛЕНА ЛОГИКА ДЕНЕГ И НОВОГО ЛУТА
                 interaction_rect = player.rect.inflate(60, 60)
                 for obj in level.loot[:]:
                     if interaction_rect.colliderect(obj['rect']):
@@ -247,7 +231,6 @@ def main_menu():
         editor_btn_h
     )
 
-    # Переменные для вывода ошибок
     menu_msg = ""
     msg_timer = 0
 
@@ -281,7 +264,6 @@ def main_menu():
         ed_txt = ui_font.render("Нажмите 'P' или кликните для запуска редактора", True, (255, 255, 255))
         game_surface.blit(ed_txt, (editor_btn_rect.centerx - ed_txt.get_width()//2, editor_btn_rect.centery - ed_txt.get_height()//2))
 
-        # ОТРИСОВКА СООБЩЕНИЯ ОБ ОШИБКЕ
         if msg_timer > 0:
             err_surf = font.render(menu_msg, True, (255, 50, 50))
             game_surface.blit(err_surf, (LOGICAL_WIDTH//2 - err_surf.get_width()//2, 320))
@@ -299,12 +281,11 @@ def main_menu():
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for btn in level_buttons:
                     if btn["rect"].collidepoint(logical_mx, logical_my):
-                        # ПРОВЕРКА СУЩЕСТВОВАНИЯ УРОВНЯ
                         if os.path.exists(f"assets/levels/level_{btn['level']}.json"):
                             run_game(btn["level"])
                         else:
                             menu_msg = f"Уровень {btn['level']} еще не создан в редакторе!"
-                            msg_timer = 120 # Показываем сообщение 2 секунды
+                            msg_timer = 120
 
                 if editor_btn_rect.collidepoint(logical_mx, logical_my):
                     try:
@@ -314,10 +295,9 @@ def main_menu():
                         pass
 
             if event.type == pygame.KEYDOWN:
-                # Проверка для кнопок клавиатуры (1, 2, 3...)
                 if pygame.K_0 <= event.key <= pygame.K_9:
                     lvl = event.key - pygame.K_0
-                    if lvl == 0: lvl = 10 # Кнопка 0 отвечает за 10 уровень
+                    if lvl == 0: lvl = 10
                     
                     if os.path.exists(f"assets/levels/level_{lvl}.json"):
                         run_game(lvl)

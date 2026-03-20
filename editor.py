@@ -43,7 +43,7 @@ def run_editor():
     level_map = [[0 for _ in range(MAP_COLS)] for _ in range(MAP_ROWS)]
     objects = []
     guards = []
-    entrance_pos = [64, 64] # По умолчанию ставим на клетку 64x64
+    entrance_pos = [64, 64]
 
     modes = ['tiles', 'objects', 'guards', 'entrance']
     mode_idx = 0
@@ -72,7 +72,6 @@ def run_editor():
         mx, my = pygame.mouse.get_pos()
         world_x, world_y = (mx - camera_x) / zoom, (my - camera_y) / zoom
         
-        # СЕТКА ТЕПЕРЬ СТРОГО 64x64
         grid_x = max(0, min(MAP_COLS - 1, int(world_x // 64)))
         grid_y = max(0, min(MAP_ROWS - 1, int(world_y // 64)))
 
@@ -100,11 +99,10 @@ def run_editor():
                     max_l = len(tile_keys) if cur_mode == 'tiles' else (len(sprite_keys) if cur_mode == 'objects' else len(guard_types))
                     c_idx[cur_mode] = min(max_l - 1, c_idx[cur_mode] + 1)
                     
-                # Добавили pygame.K_0 в список
                 if event.key in [pygame.K_0, pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9]:
                     lvl_id = event.key - pygame.K_0
                     if lvl_id == 0: 
-                        lvl_id = 10 # Если нажали 0, считаем, что это 10-й уровень
+                        lvl_id = 10
                         
                     if ctrl_held:
                         try:
@@ -132,7 +130,6 @@ def run_editor():
                     if cur_mode == 'tiles' and shift_held: box_filling, box_start, box_end = True, (grid_x, grid_y), (grid_x, grid_y)
                     elif cur_mode == 'objects' and sprite_keys:
                         spr_id = sprite_keys[c_idx['objects']]
-                        # ПРИВЯЗКА ОБЪЕКТОВ ПО СЕТКЕ 32x32 (чтобы плотно ставить к стене)
                         snap_x, snap_y = round(world_x / 32) * 32, round(world_y / 32) * 32
                         objects.append({"name": f"obj_{len(objects)}", "sprite_id": spr_id, "pos": [snap_x, snap_y]})
                     elif cur_mode == 'guards': guards.append({"type": guard_types[c_idx['guards']], "pos": [world_x, world_y]})
@@ -164,7 +161,6 @@ def run_editor():
                         for c in range(x1, x2 + 1): level_map[r][c] = int(tile_keys[c_idx['tiles']])
                     box_filling = False
 
-        # ОТРИСОВКА С УЧЕТОМ НОВОЙ СЕТКИ 64x64
         for r in range(MAP_ROWS):
             for c in range(MAP_COLS):
                 tid = str(level_map[r][c])
@@ -185,7 +181,6 @@ def run_editor():
             x1, x2, y1, y2 = min(box_start[0], box_end[0]), max(box_start[0], box_end[0]), min(box_start[1], box_end[1]), max(box_start[1], box_end[1])
             pygame.draw.rect(screen, (255, 255, 0), (x1*64*zoom + camera_x, y1*64*zoom + camera_y, (x2-x1+1)*64*zoom, (y2-y1+1)*64*zoom), max(1, int(4*zoom)))
 
-        # ОТРИСОВКА ПОЛУПРОЗРАЧНОЙ КИСТИ ДЛЯ ТАЙЛОВ И ОБЪЕКТОВ
         cur_mode = modes[mode_idx]
         if not dragging:
             if cur_mode == 'objects' and sprite_keys:
@@ -195,7 +190,6 @@ def run_editor():
                 snap_y = round(world_y / 32) * 32 * zoom + camera_y
                 screen.blit(ghost_img, (snap_x, snap_y))
             elif cur_mode == 'tiles' and tile_keys:
-                # Призрак для тайлов (по сетке 64x64)
                 ghost_img = scaled_tiles[tile_keys[c_idx['tiles']]].copy()
                 ghost_img.set_alpha(150)
                 screen.blit(ghost_img, (grid_x * 64 * zoom + camera_x, grid_y * 64 * zoom + camera_y))
