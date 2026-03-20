@@ -261,6 +261,15 @@ def main_menu():
         pygame.draw.rect(game_surface, ed_color, editor_btn_rect, border_radius=10)
         pygame.draw.rect(game_surface, (255, 255, 255), editor_btn_rect, 3, border_radius=10)
         
+        edit_lvl_btn_rect = pygame.Rect(editor_btn_rect.x, editor_btn_rect.y - 70, editor_btn_rect.width, editor_btn_rect.height)
+        
+        el_bg_color = (60, 60, 60) if edit_lvl_btn_rect.collidepoint(logical_mx, logical_my) else (40, 40, 40)
+        
+        pygame.draw.rect(game_surface, el_bg_color, edit_lvl_btn_rect, border_radius=10)
+        pygame.draw.rect(game_surface, (255, 255, 255), edit_lvl_btn_rect, 3, border_radius=10)
+
+        el_txt = font.render('EDIT LEVEL (C)', True, (255, 50, 50))
+        game_surface.blit(el_txt, (edit_lvl_btn_rect.centerx - el_txt.get_width()//2, edit_lvl_btn_rect.centery - el_txt.get_height()//2))
         ed_txt = ui_font.render("Нажмите 'P' или кликните для запуска редактора", True, (255, 255, 255))
         game_surface.blit(ed_txt, (editor_btn_rect.centerx - ed_txt.get_width()//2, editor_btn_rect.centery - ed_txt.get_height()//2))
 
@@ -283,7 +292,7 @@ def main_menu():
                     if btn["rect"].collidepoint(logical_mx, logical_my):
                         if os.path.exists(f"assets/levels/level_{btn['level']}.json"):
                             run_game(btn["level"])
-                        else:
+                else:
                             menu_msg = f"Уровень {btn['level']} еще не создан в редакторе!"
                             msg_timer = 120
 
@@ -293,8 +302,23 @@ def main_menu():
                         editor.run_editor()
                     except ImportError:
                         pass
+                
+                if edit_lvl_btn_rect.collidepoint(logical_mx, logical_my):
+                    if os.path.exists("assets/levels/level_edit.json"):
+                        run_game("edit")
+                    else:
+                        menu_msg = "Уровень EDIT еще не создан в редакторе!"
+                        msg_timer = 120
 
             if event.type == pygame.KEYDOWN:
+                
+                if event.key == pygame.K_c:
+                    if os.path.exists("assets/levels/level_edit.json"):
+                        run_game("edit")
+                    else:
+                        menu_msg = "Уровень EDIT еще не создан в редакторе!"
+                        msg_timer = 120
+
                 if pygame.K_0 <= event.key <= pygame.K_9:
                     lvl = event.key - pygame.K_0
                     if lvl == 0: lvl = 10
@@ -313,6 +337,9 @@ def main_menu():
                         display_screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.NOFRAME)
                         
                 if event.key == pygame.K_p:
+                    if event.key == pygame.K_c:
+                        game = Game("assets/levels/level_edit.json") 
+                        game.run()
                     try:
                         import editor
                         editor.run_editor()

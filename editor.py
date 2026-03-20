@@ -60,6 +60,7 @@ def run_editor():
 
     font = pygame.font.SysFont("Arial", 22)
     running = True
+    is_fullscreen = False
     save_msg, save_msg_timer, msg_color = "", 0, (0, 255, 0)
 
     while running:
@@ -90,6 +91,12 @@ def run_editor():
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE: running = False
+                if event.key == pygame.K_F11:
+                    is_fullscreen = not is_fullscreen
+                    if is_fullscreen:
+                        screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.NOFRAME)
+                    else:
+                        screen = pygame.display.set_mode((1536, 768))
                 if event.key == pygame.K_m: mode_idx = (mode_idx + 1) % 4
                 
                 cur_mode = modes[mode_idx]
@@ -100,27 +107,102 @@ def run_editor():
                     c_idx[cur_mode] = min(max_l - 1, c_idx[cur_mode] + 1)
                     
                 if event.key in [pygame.K_0, pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9]:
-                    lvl_id = event.key - pygame.K_0
-                    if lvl_id == 0: 
-                        lvl_id = 10
-                        
                     if ctrl_held:
+                        lvl_id = event.key - pygame.K_0
+                        if lvl_id == 0: lvl_id = 10
                         try:
                             with open(f"assets/levels/level_{lvl_id}.json", "r") as f: data = json.load(f)
-                            level_map = [[0 for _ in range(MAP_COLS)] for _ in range(MAP_ROWS)]
+                            file_tiles = data.get("tiles", {})
+                            stone_id = 0
+                            for k, v in tiles_dict.items():
+                                if "wall_stone" in v.lower():
+                                    stone_id = int(k)
+                                    break
+                            
+                            level_map = [[stone_id for _ in range(MAP_COLS)] for _ in range(MAP_ROWS)]
                             loaded_map = data.get("map", [])
                             for r in range(min(MAP_ROWS, len(loaded_map))):
-                                for c in range(min(MAP_COLS, len(loaded_map[r]))): level_map[r][c] = loaded_map[r][c]
+                                for c in range(min(MAP_COLS, len(loaded_map[r]))): 
+                                    file_val = str(loaded_map[r][c])
+                                    filename = file_tiles.get(file_val, "")
+                                    real_tile_id = stone_id 
+                                    for real_k, real_v in tiles_dict.items():
+                                        if real_v == filename:
+                                            real_tile_id = int(real_k)
+                                            break
+                                    level_map[r][c] = real_tile_id
+                            
                             objects = data.get("objects", [])
+                            file_sprites = data.get("sprites", {})
+                            for obj in objects:
+                                filename = file_sprites.get(obj.get("sprite_id"), "")
+                                for real_id, real_filename in sprites_dict.items():
+                                    if real_filename == filename:
+                                        obj["sprite_id"] = real_id
+                                        break
+                            
                             guards = [{"type": g["type"], "pos": [g["x"], g["y"]]} for g in data.get("guards_data", [])]
                             entrance_pos = data.get("entrance_pos", [64, 64])
+                            camera_x = (1536 // 2) - (entrance_pos[0] * zoom)
+                            camera_y = (768 // 2) - (entrance_pos[1] * zoom)
+                            
                             save_msg, msg_color, save_msg_timer = f"📂 ЗАГРУЖЕН LEVEL {lvl_id}!", (0, 200, 255), 120
                         except FileNotFoundError:
                             save_msg, msg_color, save_msg_timer = f"❌ ФАЙЛ LEVEL {lvl_id} НЕ НАЙДЕН!", (255, 50, 50), 120
+
+                if event.key == pygame.K_s and not ctrl_held:
+                    guards_data = [{"type": g["type"], "x": g["pos"][0], "y": g["pos"][1]} for g in guards]
+                    data = {
+                        "entrance_pos": entrance_pos, "tiles": tiles_dict, "sprites": sprites_dict, 
+                        "map": level_map, "objects": objects, "guards_data": guards_data
+                    }
+                    with open("assets/levels/level_edit.json", "w") as f: 
+                        json.dump(data, f, indent=2)
+                    save_msg, msg_color, save_msg_timer = f"✅ СОХРАНЕНО В ФАЙЛ 'EDIT'!", (0, 255, 0), 120
+
+                if event.key == pygame.K_s and ctrl_held:
+                    try:
+                        with open("assets/levels/level_edit.json", "r") as f: data = json.load(f)
+                        file_tiles = data.get("tiles", {})
+                        stone_id = 0
+                        for k, v in tiles_dict.items():
+                            if "wall_stone" in v.lower(): stone_id = int(k); break
+                        level_map = [[stone_id for _ in range(MAP_COLS)] for _ in range(MAP_ROWS)]
+                        loaded_map = data.get("map", [])
+                        for r in range(min(MAP_ROWS, len(loaded_map))):
+                            for c in range(min(MAP_COLS, len(loaded_map[r]))): 
+                                file_val = str(loaded_map[r][c])
+                                filename = file_tiles.get(file_val, "")
+                                real_tile_id = stone_id 
+                                for real_k, real_v in tiles_dict.items():
+                                    if real_v == filename: real_tile_id = int(real_k); break
+                                level_map[r][c] = real_tile_id
+                        objects = data.get("objects", [])
+                        file_sprites = data.get("sprites", {})
+                        for obj in objects:
+                            filename = file_sprites.get(obj.get("sprite_id"), "")
+                            for real_id, real_filename in sprites_dict.items():
+                                if real_filename == filename: obj["sprite_id"] = real_id; break
+                        guards = [{"type": g["type"], "pos": [g["x"], g["y"]]} for g in data.get("guards_data", [])]
+                        entrance_pos = data.get("entrance_pos", [64, 64])
+                        camera_x = (1536 // 2) - (entrance_pos[0] * zoom)
+                        camera_y = (768 // 2) - (entrance_pos[1] * zoom)
+                        save_msg, msg_color, save_msg_timer = f"📂 ЗАГРУЖЕН УРОВЕНЬ EDIT!", (0, 200, 255), 120
+                    except FileNotFoundError:
+                        save_msg, msg_color, save_msg_timer = f"❌ ФАЙЛ EDIT НЕ НАЙДЕН!", (255, 50, 50), 120
+                    
                     else:
                         guards_data = [{"type": g["type"], "x": g["pos"][0], "y": g["pos"][1]} for g in guards]
-                        data = {"entrance_pos": entrance_pos, "tiles": tiles_dict, "sprites": sprites_dict, "map": level_map, "objects": objects, "guards_data": guards_data}
-                        with open(f"assets/levels/level_{lvl_id}.json", "w") as f: json.dump(data, f, indent=2)
+                        data = {
+                            "entrance_pos": entrance_pos, 
+                            "tiles": tiles_dict, 
+                            "sprites": sprites_dict, 
+                            "map": level_map, 
+                            "objects": objects, 
+                            "guards_data": guards_data
+                        }
+                        with open(f"assets/levels/level_{lvl_id}.json", "w") as f: 
+                            json.dump(data, f, indent=2)
                         save_msg, msg_color, save_msg_timer = f"✅ СОХРАНЕНО КАК LEVEL {lvl_id}!", (0, 255, 0), 120
 
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -130,16 +212,28 @@ def run_editor():
                     if cur_mode == 'tiles' and shift_held: box_filling, box_start, box_end = True, (grid_x, grid_y), (grid_x, grid_y)
                     elif cur_mode == 'objects' and sprite_keys:
                         spr_id = sprite_keys[c_idx['objects']]
-                        snap_x, snap_y = round(world_x / 32) * 32, round(world_y / 32) * 32
+                        
+                        alt_held = keys[pygame.K_LALT] or keys[pygame.K_RALT]
+                        if alt_held:
+                            snap_x, snap_y = round(world_x / 8) * 8, round(world_y / 8) * 8
+                        else:
+                            snap_x, snap_y = round(world_x / 32) * 32, round(world_y / 32) * 32
+                            
                         objects.append({"name": f"obj_{len(objects)}", "sprite_id": spr_id, "pos": [snap_x, snap_y]})
                     elif cur_mode == 'guards': guards.append({"type": guard_types[c_idx['guards']], "pos": [world_x, world_y]})
                     elif cur_mode == 'entrance': entrance_pos = [grid_x * 64, grid_y * 64]
+                
                 elif event.button == 3:
                     cur_mode = modes[mode_idx]
                     if cur_mode == 'objects':
                         for obj in reversed(objects):
-                            if abs(world_x - obj['pos'][0]) < 32 and abs(world_y - obj['pos'][1]) < 32:
-                                objects.remove(obj); break
+                            sid = obj['sprite_id']
+                            if sid in sprite_imgs:
+                                img = sprite_imgs[sid]
+                                obj_rect = pygame.Rect(obj['pos'][0], obj['pos'][1], img.get_width(), img.get_height())
+                                if obj_rect.collidepoint(world_x, world_y):
+                                    objects.remove(obj)
+                                    break
                     elif cur_mode == 'guards':
                         for g in reversed(guards):
                             if abs(world_x - g['pos'][0]) < 30 and abs(world_y - g['pos'][1]) < 30:
@@ -186,8 +280,15 @@ def run_editor():
             if cur_mode == 'objects' and sprite_keys:
                 ghost_img = scaled_sprites[sprite_keys[c_idx['objects']]].copy()
                 ghost_img.set_alpha(150) 
-                snap_x = round(world_x / 32) * 32 * zoom + camera_x
-                snap_y = round(world_y / 32) * 32 * zoom + camera_y
+                
+                alt_held = keys[pygame.K_LALT] or keys[pygame.K_RALT]
+                if alt_held:
+                    snap_x = round(world_x / 8) * 8 * zoom + camera_x
+                    snap_y = round(world_y / 8) * 8 * zoom + camera_y
+                else:
+                    snap_x = round(world_x / 32) * 32 * zoom + camera_x
+                    snap_y = round(world_y / 32) * 32 * zoom + camera_y
+                    
                 screen.blit(ghost_img, (snap_x, snap_y))
             elif cur_mode == 'tiles' and tile_keys:
                 ghost_img = scaled_tiles[tile_keys[c_idx['tiles']]].copy()
@@ -196,11 +297,11 @@ def run_editor():
 
         txt = ""
         if cur_mode == 'tiles': txt = f"ТАЙЛЫ | {tiles_dict[tile_keys[c_idx['tiles']]]} | ЛКМ: Кисть | SHIFT: Заливка"
-        elif cur_mode == 'objects': txt = f"ОБЪЕКТЫ | {sprites_dict[sprite_keys[c_idx['objects']]]} | ЛКМ/ПКМ"
+        elif cur_mode == 'objects': txt = f"ОБЪЕКТЫ | {sprites_dict[sprite_keys[c_idx['objects']]]} | Зажми ALT для точной установки"
         elif cur_mode == 'guards': txt = f"ВРАГИ | {guard_types[c_idx['guards']]} | ЛКМ/ПКМ"
         elif cur_mode == 'entrance': txt = "СПАВН | ЛКМ: Поставить точку"
 
-        surf = font.render(f"[M] Режим: {txt} | СОХРАНИТЬ: 1-0 (0=10) | ЗАГРУЗИТЬ: CTRL + 1-0", True, (255, 255, 0))
+        surf = font.render(f"[M] Режим: {txt} | СОХРАНИТЬ (edit): S | ЗАГРУЗИТЬ: CTRL + 1-0 или CTRL + S", True, (255, 255, 0))
         pygame.draw.rect(screen, (0, 0, 0), (5, 5, surf.get_width() + 10, surf.get_height() + 10))
         screen.blit(surf, (10, 10))
 

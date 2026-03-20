@@ -41,13 +41,42 @@ class Level:
         self.hiding_spots = []
         self.loot = []
         
-        for row_index, row in enumerate(self.level_data.get('map', [])):
+        map_data = self.level_data.get('map', [])
+        max_rows = len(map_data)
+        
+        for row_index, row in enumerate(map_data):
+            max_cols = len(row)
             for col_index, tile_id in enumerate(row):
                 filename = self.level_data.get('tiles', {}).get(str(tile_id), "").lower()
                 
                 if "wall" in filename:
-                    rect = pygame.Rect(col_index * 64, row_index * 64, 64, 64)
-                    self.walls.append(rect)
+                    is_border = False
+                    
+                    for dr in [-1, 0, 1]:
+                        for dc in [-1, 0, 1]:
+                            if dr == 0 and dc == 0:
+                                continue
+                            
+                            nr = row_index + dr
+                            nc = col_index + dc
+                            
+                            if 0 <= nr < max_rows and 0 <= nc < max_cols:
+                                neighbor_id = map_data[nr][nc]
+                                neighbor_filename = self.level_data.get('tiles', {}).get(str(neighbor_id), "").lower()
+                                
+                                if "wall" not in neighbor_filename:
+                                    is_border = True
+                                    break
+                            else:
+                                is_border = True
+                                break
+                        
+                        if is_border:
+                            break
+                    
+                    if is_border:
+                        rect = pygame.Rect(col_index * 64, row_index * 64, 64, 64)
+                        self.walls.append(rect)
 
         for obj in self.level_data.get('objects', []):
             x, y = obj['pos']
@@ -58,27 +87,41 @@ class Level:
             h = img.get_height() if img else 64
             rect = pygame.Rect(x, y, w, h)
             
-            if "vase" in filename:
+            if "table" in filename:
+                obj['type'] = 'hiding_spot_passable'
+                obj['value'] = 0
+                
+            elif "vase" in filename:
                 obj['type'] = 'vase'
                 obj['value'] = 1000
+                
             elif "picture" in filename:
                 obj['type'] = 'picture'
                 obj['value'] = 5000
-            elif "sofa" in filename or "couch" in filename or "bush" in filename:
-                obj['type'] = 'hiding_spot'
+            
+            elif "bush" in filename or "tree" in filename or "flower" in filename or "chair" in filename or "sofa" in filename or "couch" in filename or "bench" in filename:
+                obj['type'] = 'hiding_spot_passable'
                 obj['value'] = 0
+                
             else:
                 obj['type'] = 'decor' 
                 obj['value'] = 0
                 
-            obj['rect'] = rect 
+            obj['rect'] = rect
 
             if obj['type'] in ['vase', 'picture']:
                 self.loot.append(obj) 
-            elif obj['type'] == 'hiding_spot':
+                
+            elif obj['type'] == 'hiding_spot_passable':
+                self.hiding_spots.append(rect)
+                
+            elif obj['type'] == 'hiding_spot_solid':
                 self.hiding_spots.append(rect)
                 wall_rect = pygame.Rect(x, y + h - (h // 3), w, h // 3)
                 self.walls.append(wall_rect)
+                
+            elif obj['type'] == 'solid_decor':
+                self.walls.append(rect)
 
     def refresh_physics(self):
         pass
