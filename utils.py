@@ -1,33 +1,35 @@
 import pygame
-import math
 import os
-from settings import *
+import math
+from settings import LOGICAL_WIDTH, LOGICAL_HEIGHT, TILE_SIZE
 
 class Camera:
-    """Система слежения за игроком для Full HD."""
-    def __init__(self, width, height):
-        self.camera = pygame.Rect(0, 0, width, height)
-        self.width = width
-        self.height = height
+    def __init__(self, world_width, world_height):
+        self.camera = pygame.Rect(0, 0, world_width, world_height)
+        self.world_width = world_width
+        self.world_height = world_height
 
-    def apply(self, rect):
-        """Сдвигает Rect объекта относительно камеры."""
-        return rect.move(self.camera.topleft)
+    def apply(self, entity_rect):
+        # Сдвигает хитбокс (Rect) относительно камеры
+        return entity_rect.move(self.camera.topleft)
 
     def apply_point(self, point):
-        """Сдвигает точку координат относительно камеры."""
+        # Сдвигает простые координаты x,y (нужно для звуковых волн и лута)
         return (point[0] + self.camera.x, point[1] + self.camera.y)
 
     def update(self, target_rect):
-        """Центрирует камеру на игроке с ограничением по краям карты."""
-        x = -target_rect.centerx + int(WIDTH / 2)
-        y = -target_rect.centery + int(HEIGHT / 2)
+        # Центрируем камеру на персонаже
+        x = -target_rect.centerx + int(LOGICAL_WIDTH / 2)
+        y = -target_rect.centery + int(LOGICAL_HEIGHT / 2)
 
-        # Не даем камере показывать пустоту за границами карты
-        x = min(0, max(-(self.width - WIDTH), x))
-        y = min(0, max(-(self.height - HEIGHT), y))
-        
-        self.camera = pygame.Rect(x, y, self.width, self.height)
+        # Ограничиваем скроллинг, чтобы камера не показывала черноту за краями карты
+        x = min(0, x)  # Левый край
+        y = min(0, y)  # Верхний край
+        x = max(-(self.world_width - LOGICAL_WIDTH), x)   # Правый край
+        y = max(-(self.world_height - LOGICAL_HEIGHT), y) # Нижний край
+
+        self.camera = pygame.Rect(x, y, self.world_width, self.world_height)
+
 
 def load_image(path, size=None):
     """Безопасная загрузка изображения. Если файла нет — вернет розовый квадрат."""
@@ -41,34 +43,47 @@ def load_image(path, size=None):
         return pygame.transform.scale(img, (size[0], size[1]))
     return img
 
-def get_tile(sheet, x, y, tw=48, th=48):
+def get_tile(sheet, x, y, tw=16, th=16):
     """
-    Вырезает тайл 48x48 из листа. 
-    Используем blit на чистую поверхность, чтобы избежать швов и артефактов.
+    Режет исходный тайлсет (ячейки 16x16) и растягивает до игрового TILE_SIZE.
     """
     rect = pygame.Rect(x * tw, y * th, tw, th)
     surf = pygame.Surface((tw, th), pygame.SRCALPHA)
     surf.blit(sheet, (0, 0), rect)
-    # Масштабируем до игрового TILE_SIZE (48)
+    # Масштабируем до игрового TILE_SIZE
     return pygame.transform.scale(surf, (TILE_SIZE, TILE_SIZE))
 
-def get_animation_frames(sheet, row, count, fw=16, fh=32):
+def load_simple_poses(sheet, fw=16, fh=24):
     """
-    Нарезает персонажа (16x32) и увеличивает его.
-    Чтобы персонаж не был 'мелким', мы масштабируем его 
-    с сохранением пропорций (в 3 раза: 48x96).
+    Нарезка листа с правильной высотой (24) и фикс прозрачности для Linux.
     """
-    frames = []
-    for i in range(count):
-        rect = pygame.Rect(i * fw, row * fh, fw, fh)
-        frame = pygame.Surface((fw, fh), pygame.SRCALPHA)
-        frame.blit(sheet, (0, 0), rect)
+    poses = {}
+    mapping = {
+        "right": 0,
+        "up":    1,
+        "left":  2,
+        "down":  3
+    }
+    
+    # Масштабируем в 3 раза
+    scale_factor = TILE_SIZE // 16
+    target_w = fw * scale_factor
+    target_h = fh * scale_factor
+    
+    for name, idx in mapping.items():
+        rect = pygame.Rect(idx * fw, 0, fw, fh)
         
-        # Умножаем на 3, чтобы соответствовать TILE_SIZE=48
-        # Ширина: 16*3=48, Высота: 32*3=96
-        scaled_frame = pygame.transform.scale(frame, (TILE_SIZE, TILE_SIZE * 2))
-        frames.append(scaled_frame)
-    return frames
+        snip_surf = pygame.Surface((fw, fh), pygame.SRCALPHA).convert_alpha()
+        snip_surf.blit(sheet, (0, 0), rect)
+        
+        scaled_frame = pygame.transform.scale(snip_surf, (target_w, target_h))
+        
+        final_surf = pygame.Surface((target_w, target_h), pygame.SRCALPHA).convert_alpha()
+        final_surf.blit(scaled_frame, (0, 0))
+        
+        poses[name] = final_surf
+        
+    return poses
 
 def has_line_of_sight(p1, p2, walls):
     """Проверка на наличие препятствий между точками."""

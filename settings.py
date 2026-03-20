@@ -1,13 +1,24 @@
+# --- settings.py ---
 import pygame
 import os
 
-# --- ОКНО И КАРТА ---
-WIDTH, HEIGHT = 1920, 1080  # Full HD разрешение
-TILE_SIZE = 48              # Размер клетки (под твои текстуры 48x48)
+# --- ОКНО И ЛОГИЧЕСКИЙ РАЗМЕР ИГРЫ ---
+# Логическое разрешение игры. Все координаты (игрок, UI, тайлы) 
+# рассчитываются относительно этого размера.
+LOGICAL_WIDTH, LOGICAL_HEIGHT = 1760, 960 
+
+# Начальный размер окна при запуске (в оконном режиме)
+WINDOW_WIDTH, WINDOW_HEIGHT = LOGICAL_WIDTH, LOGICAL_HEIGHT
+
+# Разрешение для настоящего полного экрана
+FULLSCREEN_RES = (1920, 1080)
+
+TILE_SIZE = 48              # Размер клетки игрового мира
 FPS = 60
 
 # Размер игрового мира (80x50 клеток)
-MAP_WIDTH, MAP_HEIGHT = TILE_SIZE * 80, TILE_SIZE * 50 
+MAP_WIDTH = 9600   # (100 тайлов * 96 пикселей)
+MAP_HEIGHT = 6400  # (100 тайлов * 64 пикселей)
 
 # --- ПУТИ К АССЕТАМ ---
 BASE_DIR = os.path.dirname(__file__)
@@ -16,17 +27,15 @@ SPRITES_DIR = os.path.join(ASSETS_DIR, "sprites")
 TILES_DIR = os.path.join(ASSETS_DIR, "tiles")
 LEVELS_DIR = os.path.join(ASSETS_DIR, "levels")
 
-# Создаем папку уровней, если её нет, чтобы игра не вылетала
+# Создаем папку уровней, если её нет
 if not os.path.exists(LEVELS_DIR):
     os.makedirs(LEVELS_DIR)
 
-# --- ТЕКСТУРЫ (Имена файлов) ---
-# Положи Interiors_free_48x48.png в assets/tiles
+# --- ТЕКСТУРЫ ---
 TILESET_FILE = "Interiors_free_48x48.png"
-# Положи Adam_16x16.png (или любой лист персонажа) в assets/sprites и назови player_sheet.png
-PLAYER_SHEET = "player_sheet.png" 
+PLAYER_SHEET = "Adam_idle_16x16.png" 
 
-# --- ЦВЕТА (Заглушки и интерфейс) ---
+# --- ЦВЕТА ---
 BG_COLOR = (10, 10, 12)          # Цвет улицы
 BUILDING_COLOR = (30, 25, 25)    # Цвет пола здания
 UI_COLOR = (240, 240, 240)
@@ -43,7 +52,7 @@ LASER_COLOR = (255, 0, 0)
 
 SHADOW_OFFSET = 8                # Смещение теней для 2.5D эффекта
 
-# --- ИДЕНТИФИКАТОРЫ ОБЪЕКТОВ (ID для сетки и редактора) ---
+# --- ИДЕНТИФИКАТОРЫ ОБЪЕКТОВ ---
 EMPTY = 0
 WALL = 1
 FLOOR = 2
@@ -51,7 +60,7 @@ LOOT = 3
 GUARD = 4
 HIDING_SPOT = 5
 CAMERA = 6
-ENTRANCE = 7  # Тот самый вход (фургон)
+ENTRANCE = 7
 
 # --- ПАРАМЕТРЫ ПЕРСОНАЖЕЙ ---
 STAMINA_MAX = 100.0
@@ -62,7 +71,7 @@ SPEED_SNEAK = 2.2
 SPEED_WALK = 4.8
 SPEED_RUN = 8.5
 
-# --- ТИПЫ ОХРАННИКОВ (Цвета для отображения в редакторе) ---
+# --- ТИПЫ ОХРАННИКОВ ---
 GUARD_NORMAL = (255, 50, 50)
 GUARD_FAST = (255, 165, 0)
 GUARD_TASER = (0, 255, 255)

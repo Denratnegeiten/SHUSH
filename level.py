@@ -1,136 +1,100 @@
 import pygame
 import json
 import os
-from settings import *
-from utils import get_tile
 
 class Level:
-    def __init__(self, level_id=1):
-        self.grid = {}
+    def __init__(self, level_path):
+        self.tile_images = {}
+        self.sprite_images = {}
+        
+        # Списки для физики и логики
         self.walls = []
-        self.loot = []
         self.hiding_spots = []
-        self.guards_data = []
+        self.loot = []
         
-        # Точка входа (синий фургон)
-        self.entrance_rect = pygame.Rect(0, 0, TILE_SIZE * 2, TILE_SIZE * 2)
+        # 1. СНАЧАЛА ЗАГРУЖАЕМ ДАННЫЕ УРОВНЯ
+        self.level_data = self.load_data(level_path)
         
-        # Загрузка текстур
-        self.tileset = None
-        self.wall_img = None
-        self.floor_img = None
-        self.loot_img = None
-        self.load_assets()
+        # 2. ТЕПЕРЬ БЕРЕМ ИЗ НИХ ЗНАЧЕНИЯ
+        self.guards_data = self.level_data.get('guards_data', [])
         
-        # Загружаем конкретный уровень
-        self.load_level_layout(level_id)
+        epos = self.level_data.get('entrance_pos', [96, 64])
+        self.entrance_rect = pygame.Rect(epos[0], epos[1], 96, 64) 
 
-    def load_assets(self):
-        """Загружает текстуры из твоего тайлсета 48x48."""
-        path = os.path.join(TILES_DIR, TILESET_FILE)
-        if os.path.exists(path):
-            self.tileset = pygame.image.load(path).convert_alpha()
-            # Берем разные тайлы из листа (координаты X, Y в сетке 48x48)
-            self.wall_img = get_tile(self.tileset, 1, 1)   # Стена
-            self.floor_img = get_tile(self.tileset, 0, 5)  # Пол (паркет)
-            self.loot_img = get_tile(self.tileset, 4, 10)  # Объект (сейф/картина)
-        else:
-            # Заглушки, если файла нет
-            self.wall_img = pygame.Surface((TILE_SIZE, TILE_SIZE)); self.wall_img.fill(WALL_COLOR)
-            self.floor_img = pygame.Surface((TILE_SIZE, TILE_SIZE)); self.floor_img.fill(BUILDING_COLOR)
-            self.loot_img = pygame.Surface((TILE_SIZE, TILE_SIZE)); self.loot_img.fill(LOOT_COLOR)
+        # 3. СТРОИМ ФИЗИКУ СТЕН И УКРЫТИЙ
+        self.build_physics()
 
-    def load_level_layout(self, level_id):
-        self.grid = {}
-        self.guards_data = []
+    def load_data(self, path):
+        with open(path, 'r') as f:
+            data = json.load(f)
 
-        if level_id == 1:
-            # --- УРОВЕНЬ 1: ПАРАДНЫЙ ХОЛЛ ---
-            self.entrance_rect.topleft = (1800, 1800)
-            # Внешние стены
-            for x in range(20, 60):
-                for y in range(15, 35):
-                    if x == 20 or x == 59 or y == 15 or y == 34:
-                        if not (x == 40 and y == 34): # Проход снизу
-                            self.grid[(x, y)] = WALL
-                    else:
-                        self.grid[(x, y)] = FLOOR
-            # Внутренние колонны
-            for cx, cy in [(30, 20), (50, 20), (30, 30), (50, 30)]:
-                self.grid[(cx, cy)] = WALL
-            self.grid[(40, 20)] = LOOT
-            self.guards_data = [
-                {'type': 'normal', 'waypoints': [(1500, 900), (2400, 900)]},
-                {'type': 'random', 'bounds': pygame.Rect(1200, 800, 1000, 500)}
-            ]
+        for tile_id, filename in data['tiles'].items():
+            img_path = os.path.join('assets', 'tiles', filename)
+            self.tile_images[int(tile_id)] = pygame.image.load(img_path).convert_alpha()
 
-        elif level_id == 2:
-            # --- УРОВЕНЬ 2: КОРИДОРЫ ---
-            self.entrance_rect.topleft = (200, 1800)
-            for x in range(5, 70):
-                for y in range(10, 40):
-                    if x == 5 or x == 69 or y == 10 or y == 39:
-                        if not (x == 10 and y == 39): self.grid[(x, y)] = WALL
-                    else: self.grid[(x, y)] = FLOOR
-            # Перегородки
-            for y in range(10, 30): self.grid[(35, y)] = WALL
-            for y in range(20, 40): self.grid[(50, y)] = WALL
-            self.grid[(60, 15)] = LOOT
-            self.grid[(10, 15)] = LOOT
-            self.guards_data = [
-                {'type': 'fast', 'waypoints': [(500, 700), (500, 1500)]},
-                {'type': 'taser', 'waypoints': [(2000, 1500), (2800, 1500)]}
-            ]
+        for sprite_id, filename in data.get('sprites', {}).items():
+            img_path = os.path.join('assets', 'sprites', filename)
+            img = pygame.image.load(img_path).convert_alpha()
+            # УВЕЛИЧИВАЕМ КАРТИНКИ В 2 РАЗА ПРИ ЗАГРУЗКЕ
+            self.sprite_images[sprite_id] = pygame.transform.scale(img, (img.get_width() * 2, img.get_height() * 2))
 
-        elif level_id == 3:
-            # --- УРОВЕНЬ 3: ХРАНИЛИЩЕ ---
-            self.entrance_rect.topleft = (1800, 100)
-            for x in range(30, 50):
-                for y in range(5, 45):
-                    self.grid[(x, y)] = FLOOR
-                    if x == 30 or x == 49 or y == 5 or y == 44:
-                        if not (x == 40 and y == 5): self.grid[(x, y)] = WALL
-            # Центр
-            self.grid[(40, 25)] = LOOT
-            self.guards_data = [
-                {'type': 'taser', 'waypoints': [(1600, 500), (2200, 500)]},
-                {'type': 'fast', 'waypoints': [(1600, 1800), (2200, 1800)]},
-                {'type': 'normal', 'waypoints': [(1900, 400), (1900, 2000)]}
-            ]
+        return data
 
-        self.refresh_physics()
+    def build_physics(self):
+        # Коллизии для стен
+        for row_index, row in enumerate(self.level_data.get('map', [])):
+            for col_index, tile_id in enumerate(row):
+                if tile_id == 2:
+                    rect = pygame.Rect(col_index * 96, row_index * 64, 96, 64)
+                    self.walls.append(rect)
+
+        # Хитбоксы для объектов
+        for obj in self.level_data.get('objects', []):
+            x, y = obj['pos']
+            
+            # Получаем реальные размеры увеличенного спрайта
+            img = self.sprite_images.get(obj['sprite_id'])
+            w = img.get_width() if img else 64
+            h = img.get_height() if img else 64
+            
+            rect = pygame.Rect(x, y, w, h)
+            obj['rect'] = rect 
+
+            if obj['type'] in ['vase', 'picture']:
+                self.loot.append(rect)
+            elif obj['type'] in ['bush', 'sofa']:
+                self.hiding_spots.append(rect) # Вся зона укрытия
+                
+                # ХИТРОСТЬ: Делаем твердой только НИЖНЮЮ ТРЕТЬ объекта
+                # Теперь игрок может зайти "за спинку" дивана
+                wall_rect = pygame.Rect(x, y + h - (h // 3), w, h // 3)
+                self.walls.append(wall_rect)
 
     def refresh_physics(self):
-        self.walls = []; self.loot = []; self.hiding_spots = []
-        for (tx, ty), t_type in self.grid.items():
-            rect = pygame.Rect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-            if t_type == WALL: self.walls.append(rect)
-            elif t_type == LOOT: self.loot.append(rect)
-            elif t_type == HIDING_SPOT: self.hiding_spots.append(rect)
+        pass
 
     def draw(self, screen, camera):
-        # 1. Отрисовка пола (сначала все клетки пола, чтобы не было дырок)
-        for (tx, ty), t_type in self.grid.items():
-            if t_type != WALL:
-                rect = pygame.Rect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-                screen.blit(self.floor_img, camera.apply(rect))
+        # ОПТИМИЗАЦИЯ (Culling): Вычисляем, какие тайлы видит камера, чтобы не рисовать все 10000 штук
+        start_col = max(0, int(-camera.camera.x // 96))
+        # Используем 1536 (примерная ширина экрана), чтобы рисовать с запасом
+        end_col = start_col + int(1536 // 96) + 2 
+        
+        start_row = max(0, int(-camera.camera.y // 64))
+        end_row = start_row + int(768 // 64) + 2
 
-        # 2. Отрисовка теней от стен
-        for wall in self.walls:
-            shadow = camera.apply(wall).move(SHADOW_OFFSET, SHADOW_OFFSET)
-            pygame.draw.rect(screen, SHADOW_COLOR, shadow)
+        # 1. Рисуем только видимый кусок пола и стен
+        map_data = self.level_data.get('map', [])
+        for row_index in range(start_row, min(end_row, len(map_data))):
+            row = map_data[row_index]
+            for col_index in range(start_col, min(end_col, len(row))):
+                tile_id = row[col_index]
+                if tile_id in self.tile_images:
+                    x = col_index * 96
+                    y = row_index * 64
+                    # СДВИГАЕМ ТАЙЛ КАМЕРОЙ
+                    screen.blit(self.tile_images[tile_id], camera.apply_point((x, y)))
 
-        # 3. Отрисовка стен и объектов
-        for (tx, ty), t_type in self.grid.items():
-            rect = pygame.Rect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-            draw_rect = camera.apply(rect)
-            
-            if t_type == WALL:
-                screen.blit(self.wall_img, draw_rect)
-            elif t_type == LOOT:
-                screen.blit(self.loot_img, draw_rect)
-            elif t_type == HIDING_SPOT:
-                pygame.draw.rect(screen, HIDE_COLOR, draw_rect)
-
-        # 4. Вход
-        pygame.draw.rect(screen, EXIT_COLOR, camera.apply(self.entrance_rect), 4)
+        # 2. Рисуем объекты (диваны, картины) со сдвигом камеры
+        for obj in self.level_data.get('objects', []):
+            if obj['sprite_id'] in self.sprite_images:
+                screen.blit(self.sprite_images[obj['sprite_id']], camera.apply_point(obj['pos']))

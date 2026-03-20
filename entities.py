@@ -3,7 +3,7 @@ import math
 import random
 import os
 from settings import *
-from utils import load_image, get_animation_frames, check_vision, has_line_of_sight
+from utils import load_image, check_vision, has_line_of_sight
 
 class TaserBullet:
     def __init__(self, x, y, tx, ty):
@@ -20,19 +20,24 @@ class TaserBullet:
 
 class Player:
     def __init__(self, x, y):
-        # Хитбокс только у ног (чтобы проходить в двери)
         self.rect = pygame.Rect(x, y, TILE_SIZE - 12, TILE_SIZE - 12)
+        self.x, self.y = float(self.rect.x), float(self.rect.y)
         
-        sheet = load_image(os.path.join(SPRITES_DIR, PLAYER_SHEET))
-        # Нарезка 16x32 -> 48x96 (пропорция 1:2)
-        self.animations = {
-            "down":  get_animation_frames(sheet, 0, 6),
-            "up":    get_animation_frames(sheet, 1, 6),
-            "left":  get_animation_frames(sheet, 2, 6),
-            "right": get_animation_frames(sheet, 3, 6)
+        # Загружаем файлы НАПРЯМУЮ, минуя utils.py
+        # Если файла нет, игра моментально вылетит с ошибкой FileNotFoundError
+        def load_and_scale(filename):
+            path = os.path.join(SPRITES_DIR, filename)
+            img = pygame.image.load(path).convert_alpha()
+            return pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
+
+        self.poses = {
+            "right": load_and_scale("player_right.png"),
+            "up":    load_and_scale("player_up.png"),
+            "left":  load_and_scale("player_left.png"),
+            "down":  load_and_scale("player_down.png")
         }
-        self.cur_anim = "down"
-        self.frame = 0
+        
+        self.cur_pose = "down" 
         self.stamina = STAMINA_MAX
         self.exhausted = False
         self.slow_timer = 0
@@ -42,16 +47,19 @@ class Player:
         self.step_dist = 0
 
     def update(self, keys, walls, hiding_spots):
-        moving = any([keys[pygame.K_w], keys[pygame.K_s], keys[pygame.K_a], keys[pygame.K_d]])
+        up = keys[pygame.K_w] or keys[pygame.K_UP]
+        down = keys[pygame.K_s] or keys[pygame.K_DOWN]
+        left = keys[pygame.K_a] or keys[pygame.K_LEFT]
+        right = keys[pygame.K_d] or keys[pygame.K_RIGHT]
+        moving = any([up, down, left, right])
         
-        # Режимы скорости
-        speed, noise_r, anim_spd = 0, 0, 0.18
+        speed, noise_r = 0, 0
         if moving:
             if keys[pygame.K_LCTRL]: 
-                speed, anim_spd = SPEED_SNEAK, 0.1
+                speed = SPEED_SNEAK
                 self.stamina = min(STAMINA_MAX, self.stamina + STAMINA_REGEN)
             elif keys[pygame.K_LSHIFT] and not self.exhausted:
-                speed, noise_r, anim_spd = SPEED_RUN, 260, 0.35
+                speed, noise_r = SPEED_RUN, 260
                 self.stamina -= STAMINA_DRAIN
                 if self.stamina <= 0: self.exhausted = True
             else:
@@ -63,44 +71,54 @@ class Player:
         if self.stamina > 25: self.exhausted = False
         if self.slow_timer > 0: speed *= 0.4; self.slow_timer -= 1
 
-        # Движение
         dx, dy = 0, 0
-        if keys[pygame.K_w]: dy -= speed; self.cur_anim = "up"
-        if keys[pygame.K_s]: dy += speed; self.cur_anim = "down"
-        if keys[pygame.K_a]: dx -= speed; self.cur_anim = "left"
-        if keys[pygame.K_d]: dx += speed; self.cur_anim = "right"
+        if up: dy -= speed; self.cur_pose = "up"
+        if down: dy += speed; self.cur_pose = "down"
+        if left: dx -= speed; self.cur_pose = "left"
+        if right: dx += speed; self.cur_pose = "right"
         if dx != 0 and dy != 0: dx *= 0.707; dy *= 0.707
 
-        self.rect.x += int(dx)
+        self.x += dx
+        self.rect.x = int(self.x)
         for w in walls:
             if self.rect.colliderect(w):
                 if dx > 0: self.rect.right = w.left
                 else: self.rect.left = w.right
-        self.rect.y += int(dy)
+                self.x = float(self.rect.x)
+
+        self.y += dy
+        self.rect.y = int(self.y)
         for w in walls:
             if self.rect.colliderect(w):
                 if dy > 0: self.rect.bottom = w.top
                 else: self.rect.top = w.bottom
+                self.y = float(self.rect.y)
 
-        # Анимация и Шум
         if moving:
-            self.frame = (self.frame + anim_spd) % len(self.animations[self.cur_anim])
             self.step_dist += speed
             if self.step_dist >= 80 and noise_r > 0 and not self.is_hidden:
                 self.step_dist = 0
                 self.active_noises.append({'pos': self.rect.center, 'r': 10, 'max': noise_r, 'a': 200})
-        else: self.frame = 0
 
         self.is_hidden = any(s.collidepoint(self.rect.center) for s in hiding_spots)
 
     def draw(self, screen, t_surf, camera):
+        # Если не спрятался - рисуем обычную тень
         if not self.is_hidden:
-            pygame.draw.ellipse(screen, SHADOW_COLOR, camera.apply(self.rect).move(0, 20))
+            pygame.draw.ellipse(screen, (30, 30, 30), camera.apply(self.rect).move(0, 20))
         
-        img = self.animations[self.cur_anim][int(self.frame)]
+        # КОПИРУЕМ кадр, чтобы не испортить оригинал
+        img = self.poses[self.cur_pose].copy() 
+        
+        # ЭФФЕКТ МАСКИРОВКИ: Если спрятался, делаем полупрозрачным
+        if self.is_hidden:
+            img.set_alpha(100) 
+            
         pos = camera.apply(self.rect)
-        # Рисуем со смещением вверх, т.к. спрайт высокий (96px), а хитбокс у ног
-        screen.blit(img, (pos.x - 6, pos.y - 58))
+        offset_x = (self.rect.width - img.get_width()) // 2
+        offset_y = self.rect.height - img.get_height()
+        
+        screen.blit(img, (pos.x + offset_x, pos.y + offset_y))
         
         for n in self.active_noises[:]:
             pygame.draw.circle(t_surf, (255,255,255, n['a']), camera.apply_point(n['pos']), int(n['r']), 2)
@@ -117,7 +135,6 @@ class Guard:
         self.wp = waypoints; self.idx = 0; self.bounds = bounds
         self.target = self.wp[0] if self.wp else (x, y)
         
-        # Статы: скорость, скорость погони, цвет
         stats = {
             'normal': (2.2, 4.5, GUARD_NORMAL),
             'fast':   (3.8, 7.0, GUARD_FAST),
