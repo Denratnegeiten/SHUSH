@@ -2,8 +2,8 @@ import pygame
 import math
 import random
 import os
-from settings import *
-from utils import load_image, check_vision, has_line_of_sight
+from src.settings import *
+from src.utils import load_image, check_vision, has_line_of_sight
 
 class TaserBullet:
     def __init__(self, x, y, tx, ty):
@@ -26,7 +26,7 @@ class Player:
         self.total_money_value = 0
         
         def load_and_scale(filename):
-            path = os.path.join(SPRITES_DIR, filename)
+            path = os.path.join(CHARS_DIR, filename)
             img = pygame.image.load(path).convert_alpha()
             return pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
 
@@ -156,7 +156,7 @@ class Guard:
         prefix = "omon" if self.type == "swat" else "cop"
         for d in ["up", "down", "left", "right"]:
             try:
-                img = pygame.image.load(os.path.join('assets', 'sprites', f"{prefix}_{d}.png")).convert_alpha()
+                img = pygame.image.load(os.path.join(CHARS_DIR, f"{prefix}_{d}.png")).convert_alpha()
                 self.poses[d] = pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
             except FileNotFoundError:
                 surf = pygame.Surface((40, 40))

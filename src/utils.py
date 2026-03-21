@@ -1,7 +1,7 @@
 import pygame
 import os
 import math
-from settings import LOGICAL_WIDTH, LOGICAL_HEIGHT, TILE_SIZE
+from src.settings import LOGICAL_WIDTH, LOGICAL_HEIGHT, TILE_SIZE
 
 class Camera:
     def __init__(self, world_width, world_height):

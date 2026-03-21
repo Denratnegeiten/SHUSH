@@ -1,6 +1,7 @@
 import pygame
 import json
 import os
+from src.settings import TILES_DIR, PROPS_DIR, CHARS_DIR
 
 class Level:
     def __init__(self, level_path):
@@ -25,12 +26,22 @@ class Level:
             data = json.load(f)
 
         for tile_id, filename in data['tiles'].items():
-            img_path = os.path.join('assets', 'tiles', filename)
+            img_path = os.path.join(TILES_DIR, filename)
             raw_img = pygame.image.load(img_path).convert_alpha()
             self.tile_images[int(tile_id)] = pygame.transform.scale(raw_img, (64, 64))
 
         for sprite_id, filename in data.get('sprites', {}).items():
-            img_path = os.path.join('assets', 'sprites', filename)
+            prop_path = os.path.join(PROPS_DIR, filename)
+            char_path = os.path.join(CHARS_DIR, filename)
+
+            if os.path.exists(prop_path):
+                img_path = prop_path
+            elif os.path.exists(char_path):
+                img_path = char_path
+            else:
+                print(f"Внимание: файл {filename} не найден ни в props, ни в characters!")
+                continue
+
             img = pygame.image.load(img_path).convert_alpha()
             self.sprite_images[sprite_id] = pygame.transform.scale(img, (img.get_width() * 2, img.get_height() * 2))
 

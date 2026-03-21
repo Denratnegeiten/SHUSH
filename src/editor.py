@@ -1,7 +1,7 @@
 import pygame
 import json
 import os
-from settings import WINDOW_WIDTH, WINDOW_HEIGHT
+from src.settings import WINDOW_WIDTH, WINDOW_HEIGHT, TILES_DIR, PROPS_DIR, LEVELS_DIR
 
 def run_editor():
     pygame.init()
@@ -14,25 +14,26 @@ def run_editor():
     base_tiles = ["home_floor_96x64.png", "street_floor_96x64.png", "walls_96x64.png"]
     tiles_dict = {"0": base_tiles[0], "1": base_tiles[1], "2": base_tiles[2]}
     t_idx = 3
-    for file in sorted(os.listdir('assets/tiles')):
+    for file in sorted(os.listdir(TILES_DIR)):
         if file.endswith('.png') and file not in base_tiles:
             tiles_dict[str(t_idx)] = file
             t_idx += 1
 
     sprites_dict = {}
     s_idx = 0
-    for file in sorted(os.listdir('assets/sprites')):
-        if file.endswith('.png') and not file.startswith('cop_') and not file.startswith('omon_'):
+    for file in sorted(os.listdir(PROPS_DIR)):
+        if file.endswith('.png'):
             sprites_dict[f"spr_{s_idx}"] = file
             s_idx += 1
 
     tile_imgs = {}
     for k, v in tiles_dict.items():
-        raw_img = pygame.image.load(os.path.join('assets/tiles', v)).convert_alpha()
+        raw_img = pygame.image.load(os.path.join(TILES_DIR, v)).convert_alpha()
         tile_imgs[k] = pygame.transform.scale(raw_img, (64, 64))
+        
     sprite_imgs = {}
     for k, v in sprites_dict.items():
-        img = pygame.image.load(os.path.join('assets/sprites', v)).convert_alpha()
+        img = pygame.image.load(os.path.join(PROPS_DIR, v)).convert_alpha()
         sprite_imgs[k] = pygame.transform.scale(img, (img.get_width() * 2, img.get_height() * 2))
 
     def get_scaled_imgs(z):

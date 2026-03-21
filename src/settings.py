@@ -13,9 +13,11 @@ FPS = 60
 MAP_WIDTH = 9600
 MAP_HEIGHT = 6400
 
-BASE_DIR = os.path.dirname(__file__)
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 SPRITES_DIR = os.path.join(ASSETS_DIR, "sprites")
+CHARS_DIR = os.path.join(SPRITES_DIR, "characters")
+PROPS_DIR = os.path.join(SPRITES_DIR, "props")
 TILES_DIR = os.path.join(ASSETS_DIR, "tiles")
 LEVELS_DIR = os.path.join(ASSETS_DIR, "levels")
 

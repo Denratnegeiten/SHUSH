@@ -2,20 +2,21 @@ import pygame
 import sys
 import math
 import os
-from settings import *
-from level import Level
-from entities import Player, Guard
-from utils import Camera, check_vision, has_line_of_sight
+
+from src.settings import *
+from src.level import Level
+from src.entities import Player, Guard
+from src.utils import Camera, check_vision, has_line_of_sight
 
 pygame.init()
 
-display_screen = pygame.display.set_mode((LOGICAL_WIDTH, LOGICAL_HEIGHT), pygame.FULLSCREEN | pygame.NOFRAME)
+display_screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.NOFRAME)
 pygame.display.set_caption("SHUSH - Ultimate Stealth")
 clock = pygame.time.Clock()
 
 game_surface = pygame.Surface((LOGICAL_WIDTH, LOGICAL_HEIGHT))
 
-is_fullscreen = True
+is_fullscreen = False
 
 font = pygame.font.SysFont("Arial", 30, bold=True)
 money_font = pygame.font.SysFont("Arial", 26, bold=True) 
@@ -51,7 +52,8 @@ def draw_ui(surf, player, game_state, panic_timer):
 
 
 def run_game(level_id):
-    level = Level(f'assets/levels/level_{level_id}.json')
+    level_path = os.path.join(LEVELS_DIR, f'level_{level_id}.json')
+    level = Level(level_path)
     
     player = Player(level.entrance_rect.centerx, level.entrance_rect.centery)
     camera = Camera(MAP_WIDTH, MAP_HEIGHT)
@@ -201,7 +203,8 @@ def main_menu():
     global is_fullscreen, display_screen, game_surface
     
     try:
-        bg_image = pygame.image.load(os.path.join('assets', 'ui', 'wallpaper.png')).convert()
+        wallpaper_path = os.path.join(ASSETS_DIR, 'ui', 'wallpaper.png')
+        bg_image = pygame.image.load(wallpaper_path).convert()
         bg_image = pygame.transform.scale(bg_image, (LOGICAL_WIDTH, LOGICAL_HEIGHT))
     except FileNotFoundError:
         bg_image = pygame.Surface((LOGICAL_WIDTH, LOGICAL_HEIGHT))
@@ -261,15 +264,6 @@ def main_menu():
         pygame.draw.rect(game_surface, ed_color, editor_btn_rect, border_radius=10)
         pygame.draw.rect(game_surface, (255, 255, 255), editor_btn_rect, 3, border_radius=10)
         
-        edit_lvl_btn_rect = pygame.Rect(editor_btn_rect.x, editor_btn_rect.y - 70, editor_btn_rect.width, editor_btn_rect.height)
-        
-        el_bg_color = (60, 60, 60) if edit_lvl_btn_rect.collidepoint(logical_mx, logical_my) else (40, 40, 40)
-        
-        pygame.draw.rect(game_surface, el_bg_color, edit_lvl_btn_rect, border_radius=10)
-        pygame.draw.rect(game_surface, (255, 255, 255), edit_lvl_btn_rect, 3, border_radius=10)
-
-        el_txt = font.render('EDIT LEVEL (C)', True, (255, 50, 50))
-        game_surface.blit(el_txt, (edit_lvl_btn_rect.centerx - el_txt.get_width()//2, edit_lvl_btn_rect.centery - el_txt.get_height()//2))
         ed_txt = ui_font.render("Нажмите 'P' или кликните для запуска редактора", True, (255, 255, 255))
         game_surface.blit(ed_txt, (editor_btn_rect.centerx - ed_txt.get_width()//2, editor_btn_rect.centery - ed_txt.get_height()//2))
 
@@ -290,40 +284,25 @@ def main_menu():
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for btn in level_buttons:
                     if btn["rect"].collidepoint(logical_mx, logical_my):
-                        if os.path.exists(f"assets/levels/level_{btn['level']}.json"):
+                        if os.path.exists(os.path.join(LEVELS_DIR, f"level_{btn['level']}.json")):
                             run_game(btn["level"])
-                else:
+                        else:
                             menu_msg = f"Уровень {btn['level']} еще не создан в редакторе!"
                             msg_timer = 120
 
                 if editor_btn_rect.collidepoint(logical_mx, logical_my):
                     try:
-                        import editor
+                        from src import editor
                         editor.run_editor()
-                    except ImportError:
-                        pass
-                
-                if edit_lvl_btn_rect.collidepoint(logical_mx, logical_my):
-                    if os.path.exists("assets/levels/level_edit.json"):
-                        run_game("edit")
-                    else:
-                        menu_msg = "Уровень EDIT еще не создан в редакторе!"
-                        msg_timer = 120
+                    except ImportError as e:
+                        print(e)
 
             if event.type == pygame.KEYDOWN:
-                
-                if event.key == pygame.K_c:
-                    if os.path.exists("assets/levels/level_edit.json"):
-                        run_game("edit")
-                    else:
-                        menu_msg = "Уровень EDIT еще не создан в редакторе!"
-                        msg_timer = 120
-
                 if pygame.K_0 <= event.key <= pygame.K_9:
                     lvl = event.key - pygame.K_0
                     if lvl == 0: lvl = 10
                     
-                    if os.path.exists(f"assets/levels/level_{lvl}.json"):
+                    if os.path.exists(os.path.join(LEVELS_DIR, f"level_{lvl}.json")):
                         run_game(lvl)
                     else:
                         menu_msg = f"Уровень {lvl} еще не создан в редакторе!"
@@ -337,14 +316,11 @@ def main_menu():
                         display_screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.NOFRAME)
                         
                 if event.key == pygame.K_p:
-                    if event.key == pygame.K_c:
-                        game = Game("assets/levels/level_edit.json") 
-                        game.run()
                     try:
-                        import editor
+                        from src import editor
                         editor.run_editor()
-                    except ImportError:
-                        pass
+                    except ImportError as e:
+                        print(e)
 
 if __name__ == "__main__":
     main_menu()
