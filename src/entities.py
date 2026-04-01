@@ -268,3 +268,50 @@ class Guard:
             
         if len(points) > 2:
             pygame.draw.polygon(surf, (255, 255, 100, 60), points)
+            
+class SecurityCamera:
+    def __init__(self, x, y, start_angle_deg=90):
+        self.rect = pygame.Rect(x - 15, y - 15, 30, 30)
+        self.x, self.y = float(x), float(y)
+        
+        self.vision_range = 380
+        self.vision_fov = 0.7
+        
+        self.start_angle = math.radians(start_angle_deg)
+        self.angle = self.start_angle
+        
+        self.swing_angle = math.pi / 4 
+        self.rotation_speed = 0.0004 
+        self.time_offset = random.uniform(0, 1000) 
+        
+    def update(self):
+        time = pygame.time.get_ticks() * self.rotation_speed + self.time_offset
+        self.angle = self.start_angle + math.sin(time) * self.swing_angle
+        
+        self.angle = (self.angle + math.pi) % (2 * math.pi) - math.pi
+
+    def draw(self, screen, camera):
+        pygame.draw.circle(screen, (100, 100, 100), camera.apply_point((self.x, self.y)), 15)
+        lx = self.x + math.cos(self.angle) * 15
+        ly = self.y + math.sin(self.angle) * 15
+        pygame.draw.circle(screen, (255, 0, 0), camera.apply_point((lx, ly)), 5)
+
+    def draw_vision(self, surf, walls, camera_sys):
+        points = [camera_sys.apply_point((self.x, self.y))]
+        view_rect = pygame.Rect(self.x - self.vision_range, self.y - self.vision_range, 
+                               self.vision_range * 2, self.vision_range * 2)
+        nearby_walls = [w for w in walls if view_rect.colliderect(w)]
+        
+        for i in range(-3, 4):
+            ang = self.angle + (i * (self.vision_fov / 6))
+            rx, ry = self.x, self.y
+            for step in range(0, int(self.vision_range), 25):
+                nx = rx + math.cos(ang) * 25
+                ny = ry + math.sin(ang) * 25
+                if any(w.collidepoint(nx, ny) for w in nearby_walls):
+                    break
+                rx, ry = nx, ny
+            points.append(camera_sys.apply_point((rx, ry)))
+            
+        if len(points) > 2:
+            pygame.draw.polygon(surf, (100, 200, 255, 50), points)

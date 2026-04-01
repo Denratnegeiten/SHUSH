@@ -5,7 +5,7 @@ import os
 
 from src.settings import *
 from src.level import Level
-from src.entities import Player, Guard
+from src.entities import Player, Guard, SecurityCamera
 from src.utils import Camera, check_vision, has_line_of_sight
 
 pygame.init()
@@ -100,8 +100,17 @@ def run_game(level_id):
     player = Player(level.entrance_rect.centerx, level.entrance_rect.centery)
     camera = Camera(MAP_WIDTH, MAP_HEIGHT)
     
-    guards = [Guard(g['type'], g.get('x', 0), g.get('y', 0), g.get('waypoints'), g.get('bounds')) 
-              for g in level.guards_data if g['type'] != 'swat']
+    guards = []
+    cameras = []
+    guards = []
+    cameras = []
+    for g in level.guards_data:
+        if g['type'] == 'camera':
+            cameras.append(SecurityCamera(g.get('x', 0), g.get('y', 0), g.get('angle', 90)))
+        elif g['type'] != 'swat':
+            new_guard = Guard(g['type'], g.get('x', 0), g.get('y', 0), g.get('waypoints'), g.get('bounds'))
+            new_guard.angle = math.radians(g.get('angle', 90))
+            guards.append(new_guard)
     
     transparent_surf = pygame.Surface((LOGICAL_WIDTH, LOGICAL_HEIGHT), pygame.SRCALPHA)
     panic_overlay = pygame.Surface((LOGICAL_WIDTH, LOGICAL_HEIGHT), pygame.SRCALPHA)
@@ -142,10 +151,18 @@ def run_game(level_id):
                     elif any(b.rect.colliderect(w) for w in level.walls):
                         g.bullets.remove(b)
 
+            for c in cameras:
+                c.update()
+
             if game_state == "STEALTH":
+                for c in cameras:
+                    if check_vision(player.rect, player.is_hidden, c.rect, c.angle, c.vision_range, c.vision_fov, level.walls):
+                        game_state = "PANIC"
+
                 for g in guards:
                     if check_vision(player.rect, player.is_hidden, g.rect, g.angle, 450, 1.2, level.walls):
                         game_state = "PANIC"
+                    
                     for noise in player.active_noises:
                         if math.hypot(noise['pos'][0] - g.rect.centerx, noise['pos'][1] - g.rect.centery) < noise['r']:
                             if has_line_of_sight(noise['pos'], g.rect.center, level.walls):
@@ -173,6 +190,10 @@ def run_game(level_id):
             g.draw(game_surface, camera)
             for b in g.bullets:
                 b.draw(game_surface, camera)
+        for c in cameras:
+            if game_state in ["STEALTH", "PANIC"]:
+                c.draw_vision(transparent_surf, level.walls, camera)
+            c.draw(game_surface, camera)
 
         game_surface.blit(transparent_surf, (0, 0))
 

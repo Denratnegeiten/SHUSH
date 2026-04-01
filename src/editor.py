@@ -52,13 +52,15 @@ def run_editor():
     modes = ['tiles', 'objects', 'guards', 'entrance']
     mode_idx = 0
     tile_keys, sprite_keys = list(tiles_dict.keys()), list(sprites_dict.keys())
-    guard_types = ['normal', 'fast', 'taser', 'random', 'swat']
-    guard_colors = {'normal': (100, 100, 255), 'fast': (255, 255, 0), 'taser': (255, 100, 100), 'random': (200, 0, 200), 'swat': (50, 50, 50)}
+    guard_types = ['normal', 'fast', 'taser', 'random', 'swat', 'camera']
+    guard_colors = {'normal': (100, 100, 255), 'fast': (255, 255, 0), 'taser': (255, 100, 100), 'random': (200, 0, 200), 'swat': (50, 50, 50), 'camera': (150, 150, 150)}
     c_idx = {'tiles': 0, 'objects': 0, 'guards': 0}
+    
+    current_angle = 90
 
     camera_x, camera_y = 0, 0
     zoom = 1.0
-    current_level_id = "edit"
+    current_level_id = "custom"
     scaled_tiles, scaled_sprites = get_scaled_imgs(zoom)
     
     dragging, box_filling, box_del_filling = False, False, False
@@ -104,6 +106,9 @@ def run_editor():
                         screen = pygame.display.set_mode((1536, 768))
                 
                 if event.key == pygame.K_m: mode_idx = (mode_idx + 1) % 4
+                
+                if event.key == pygame.K_r:
+                    current_angle = (current_angle + 90) % 360
                 
                 cur_mode = modes[mode_idx]
                 if event.key == pygame.K_q and cur_mode in c_idx: 
@@ -154,7 +159,13 @@ def run_editor():
                                         obj["sprite_id"] = real_id
                                         break
                             
-                            guards = [{"type": g["type"], "pos": [g.get("x", 0), g.get("y", 0)]} for g in data.get("guards_data", [])]
+                            guards = []
+                            for g in data.get("guards_data", []):
+                                guards.append({
+                                    "type": g["type"], 
+                                    "pos": [g.get("x", 0), g.get("y", 0)], 
+                                    "angle": g.get("angle", 90)
+                                })
                             entrance_pos = data.get("entrance_pos", [64, 64])
                             camera_x = (1536 // 2) - (entrance_pos[0] * zoom)
                             camera_y = (768 // 2) - (entrance_pos[1] * zoom)
@@ -202,13 +213,20 @@ def run_editor():
                         camera_x = (1536 // 2) - (entrance_pos[0] * zoom)
                         camera_y = (768 // 2) - (entrance_pos[1] * zoom)
                         
-                        current_level_id = "edit"
+                        current_level_id = "custom"
                         save_msg, msg_color, save_msg_timer = f"Загружен собственный уровень.", (0, 200, 255), 120
                     except FileNotFoundError:
                         save_msg, msg_color, save_msg_timer = f"Файл собственного уровня не найден.", (255, 50, 50), 120
 
                 if event.key == pygame.K_s and ctrl_held:
-                    guards_data = [{"type": g["type"], "x": g["pos"][0], "y": g["pos"][1]} for g in guards]
+                    guards_data = [
+                        {
+                            "type": g["type"], 
+                            "x": g["pos"][0], 
+                            "y": g["pos"][1], 
+                            "angle": g.get("angle", 90)
+                        } for g in guards
+                    ]
                     data = {
                         "entrance_pos": entrance_pos, 
                         "tiles": tiles_dict, 
@@ -218,11 +236,14 @@ def run_editor():
                         "guards_data": guards_data
                     }
                     
-                    filepath = os.path.join(LEVELS_DIR, "level_custom.json")
+                    filename = f"level_{current_level_id}.json"
+                    filepath = os.path.join(LEVELS_DIR, filename)
+                    
                     with open(filepath, "w") as f: 
                         json.dump(data, f, indent=2)
                         
-                    save_msg, msg_color, save_msg_timer = f"Сохранено как 'Собственный уровень'.", (0, 255, 0), 120
+                    save_msg = f"Сохранено в {filename}"
+                    msg_color, save_msg_timer = (0, 255, 0), 120
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 2: dragging, last_mouse_pos = True, event.pos
@@ -238,7 +259,12 @@ def run_editor():
                         alt_held = keys[pygame.K_LALT] or keys[pygame.K_RALT]
                         snap_x, snap_y = (round(world_x / 8) * 8, round(world_y / 8) * 8) if alt_held else (round(world_x / 32) * 32, round(world_y / 32) * 32)
                         objects.append({"name": f"obj_{len(objects)}", "sprite_id": spr_id, "pos": [snap_x, snap_y]})
-                    elif cur_mode == 'guards': guards.append({"type": guard_types[c_idx['guards']], "pos": [world_x, world_y]})
+                    elif cur_mode == 'guards': 
+                        guards.append({
+                            "type": guard_types[c_idx['guards']], 
+                            "pos": [world_x, world_y], 
+                            "angle": current_angle
+                        })
                     elif cur_mode == 'entrance': entrance_pos = [grid_x * 64, grid_y * 64]
                 
                 elif event.button == 3:
@@ -337,14 +363,23 @@ def run_editor():
                 ghost_img = scaled_tiles[tile_keys[c_idx['tiles']]].copy()
                 ghost_img.set_alpha(150)
                 screen.blit(ghost_img, (grid_x * 64 * zoom + camera_x, grid_y * 64 * zoom + camera_y))
-
+            elif cur_mode == 'guards':
+                cx, cy = mx, my
+                pygame.draw.circle(screen, guard_colors[guard_types[c_idx['guards']]], (int(cx), int(cy)), int(20*zoom))
+                
+                rad = math.radians(current_angle)
+                lx = cx + math.cos(rad) * 40 * zoom
+                ly = cy + math.sin(rad) * 40 * zoom
+                pygame.draw.line(screen, (255, 255, 255), (cx, cy), (lx, ly), 3)
+                
         txt = ""
         if cur_mode == 'tiles': txt = f"Тайтлы | {tiles_dict[tile_keys[c_idx['tiles']]]} | ЛКМ: Кисть | ПКМ: Ластик | SHIFT: Заливка"
         elif cur_mode == 'objects': txt = f"Объекты | {sprites_dict[sprite_keys[c_idx['objects']]]} | Зажми ALT для точной установки"
         elif cur_mode == 'guards': txt = f"Полиция | {guard_types[c_idx['guards']]} | ЛКМ/ПКМ"
         elif cur_mode == 'entrance': txt = "Точка спавна | ЛКМ: Поставить точку"
 
-        surf = font.render(f"[M] Режим: {txt} | Сохранить собственный уровень: CTRL+S | Загрузить: CTRL+1-0 или CTRL+E", True, (255, 255, 0))
+        status_txt = f"[M] Режим: {txt} | РЕДАКТИРУЕМ: level_{current_level_id}.json | CTRL+S: Сохранить"
+        surf = font.render(status_txt, True, (255, 255, 0))
         pygame.draw.rect(screen, (0, 0, 0), (5, 5, surf.get_width() + 10, surf.get_height() + 10))
         screen.blit(surf, (10, 10))
 

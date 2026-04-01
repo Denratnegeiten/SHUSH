@@ -94,8 +94,9 @@ def check_vision(player_rect, is_hidden, source_rect, angle, dist, fov, walls):
     if d > dist: return False
     
     angle_to_p = math.atan2(py - sy, px - sx)
-    diff = abs(angle_to_p - angle)
-    if diff > math.pi: diff = 2 * math.pi - diff
-    if diff > fov / 2: return False
     
-    return has_line_of_sight(source_rect.center, player_rect.center, walls)
+    cos_diff = math.cos(angle_to_p - angle)
+    if cos_diff < math.cos(fov / 2): 
+        return False
+    
+    return has_line_of_sight((sx, sy), (px, py), walls)
