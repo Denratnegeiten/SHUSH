@@ -46,7 +46,7 @@ class Level:
             self.sprite_images[sprite_id] = pygame.transform.scale(img, (img.get_width() * 2, img.get_height() * 2))
 
         return data
-
+    
     def build_physics(self):
         self.walls = []
         self.hiding_spots = []
@@ -58,9 +58,13 @@ class Level:
         for row_index, row in enumerate(map_data):
             max_cols = len(row)
             for col_index, tile_id in enumerate(row):
-                filename = self.level_data.get('tiles', {}).get(str(tile_id), "").lower()
+                if tile_id == -1:
+                    is_solid = True
+                else:
+                    filename = self.level_data.get('tiles', {}).get(str(tile_id), "").lower()
+                    is_solid = "wall" in filename
                 
-                if "wall" in filename:
+                if is_solid:
                     is_border = False
                     
                     for dr in [-1, 0, 1]:
@@ -73,15 +77,12 @@ class Level:
                             
                             if 0 <= nr < max_rows and 0 <= nc < max_cols:
                                 neighbor_id = map_data[nr][nc]
-                                neighbor_filename = self.level_data.get('tiles', {}).get(str(neighbor_id), "").lower()
-                                
-                                if "wall" not in neighbor_filename:
-                                    is_border = True
-                                    break
-                            else:
-                                is_border = True
-                                break
-                        
+                                if neighbor_id != -1:
+                                    neighbor_filename = self.level_data.get('tiles', {}).get(str(neighbor_id), "").lower()
+                                    if "wall" not in neighbor_filename:
+                                        is_border = True
+                                        break
+                                        
                         if is_border:
                             break
                     

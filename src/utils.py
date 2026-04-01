@@ -28,7 +28,6 @@ class Camera:
 
 
 def load_image(path, size=None):
-    """Безопасная загрузка изображения. Если файла нет — вернет розовый квадрат."""
     if not os.path.exists(path):
         fallback = pygame.Surface((TILE_SIZE, TILE_SIZE))
         fallback.fill((255, 0, 255))
@@ -40,18 +39,12 @@ def load_image(path, size=None):
     return img
 
 def get_tile(sheet, x, y, tw=16, th=16):
-    """
-    Режет исходный тайлсет (ячейки 16x16) и растягивает до игрового TILE_SIZE.
-    """
     rect = pygame.Rect(x * tw, y * th, tw, th)
     surf = pygame.Surface((tw, th), pygame.SRCALPHA)
     surf.blit(sheet, (0, 0), rect)
     return pygame.transform.scale(surf, (TILE_SIZE, TILE_SIZE))
 
 def load_simple_poses(sheet, fw=16, fh=24):
-    """
-    Нарезка листа с правильной высотой (24) и фикс прозрачности для Linux.
-    """
     poses = {}
     mapping = {
         "right": 0,
@@ -80,14 +73,18 @@ def load_simple_poses(sheet, fw=16, fh=24):
     return poses
 
 def has_line_of_sight(p1, p2, walls):
-    """Проверка на наличие препятствий между точками."""
+    x1, y1 = p1
+    x2, y2 = p2
+    line_rect = pygame.Rect(min(x1, x2), min(y1, y2), abs(x1 - x2) or 1, abs(y1 - y2) or 1)
+    
     for wall in walls:
-        if wall.clipline(p1, p2):
-            return False
+        if line_rect.colliderect(wall):
+            if wall.clipline(p1, p2):
+                return False
+                
     return True
 
 def check_vision(player_rect, is_hidden, source_rect, angle, dist, fov, walls):
-    """Логика зрения охранников и камер."""
     if is_hidden: return False
     
     px, py = player_rect.center

@@ -244,6 +244,9 @@ class Guard:
     def draw_vision(self, surf, walls, camera):
         points = [camera.apply_point(self.rect.center)]
         
+        view_rect = pygame.Rect(self.x - self.vision_range, self.y - self.vision_range, self.vision_range * 2, self.vision_range * 2)
+        nearby_walls = [w for w in walls if view_rect.colliderect(w)]
+        
         for i in range(-3, 4):
             ang = self.angle + (i * (self.vision_fov / 6))
             rx, ry = self.rect.center
@@ -251,7 +254,7 @@ class Guard:
                 nx = rx + math.cos(ang) * 25
                 ny = ry + math.sin(ang) * 25
                 
-                if any(w.collidepoint(nx, ny) for w in walls):
+                if any(w.collidepoint(nx, ny) for w in nearby_walls):
                     break
                 rx, ry = nx, ny
             points.append(camera.apply_point((rx, ry)))

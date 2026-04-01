@@ -10,48 +10,79 @@ from src.utils import Camera, check_vision, has_line_of_sight
 
 pygame.init()
 
-display_screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.NOFRAME)
+display_screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.NOFRAME)
 pygame.display.set_caption("SHUSH - Ultimate Stealth")
 clock = pygame.time.Clock()
 
 game_surface = pygame.Surface((LOGICAL_WIDTH, LOGICAL_HEIGHT))
 
-is_fullscreen = False
+is_fullscreen = True
 
-font = pygame.font.SysFont("Arial", 30, bold=True)
-money_font = pygame.font.SysFont("Arial", 26, bold=True) 
-large_font = pygame.font.SysFont("Arial", 120, bold=True)
-ui_font = pygame.font.SysFont("Arial", 20)
-
-RED = (255, 60, 60)
-money_font = pygame.font.SysFont("Arial", 28)
-loot_font = pygame.font.SysFont("Arial", 36, bold=True)
-stamina_txt_font = pygame.font.SysFont("Arial", 24)
+try:
+    font_path = os.path.join(ASSETS_DIR, 'ui', 'Arimo-VariableFont_wght.ttf')
+    
+    font = pygame.font.Font(font_path, 30)
+    money_font = pygame.font.Font(font_path, 26) 
+    large_font = pygame.font.Font(font_path, 120)
+    ui_font = pygame.font.Font(font_path, 20)
+    loot_font = pygame.font.Font(font_path, 36)
+    stamina_txt_font = pygame.font.Font(font_path, 24)
+except FileNotFoundError:
+    print("Шрифт Arimo-VariableFont_wght.ttf не найден в assets/ui/! Использую стандартный.")
+    font = pygame.font.SysFont("Arial", 30, bold=True)
+    money_font = pygame.font.SysFont("Arial", 26, bold=True) 
+    large_font = pygame.font.SysFont("Arial", 120, bold=True)
+    ui_font = pygame.font.SysFont("Arial", 20)
+    loot_font = pygame.font.SysFont("Arial", 36, bold=True)
+    stamina_txt_font = pygame.font.SysFont("Arial", 24)
 
 def draw_ui(surf, player, game_state, panic_timer):
     s_w, s_h = 200, 20
-    sx, sy = LOGICAL_WIDTH - s_w - 60, 60
-    pygame.draw.rect(surf, (40, 10, 10), (sx, sy, s_w, s_h))
+    sx, sy = LOGICAL_WIDTH - s_w - 20, 20 
     
+    stamina_text = ui_font.render("ВЫНОСЛИВОСТЬ", True, (255, 50, 50))
+    
+    stam_box_w = max(s_w, stamina_text.get_width()) + 20
+    stam_box_h = s_h + stamina_text.get_height() + 20
+    stam_bg = pygame.Surface((stam_box_w, stam_box_h), pygame.SRCALPHA)
+    stam_bg.fill((0, 0, 0, 150))
+    
+    surf.blit(stam_bg, (sx - 10, sy - 10))
+    
+    pygame.draw.rect(surf, (40, 10, 10), (sx, sy, s_w, s_h))
     current_w = (player.stamina / STAMINA_MAX) * s_w
+    
     pygame.draw.rect(surf, (255, 50, 50), (sx, sy, current_w, s_h))
     pygame.draw.rect(surf, (255, 50, 50), (sx, sy, s_w, s_h), 3)
     
-    surf.blit(ui_font.render("STAMINA", True, (255, 50, 50)), (sx + 5, sy + 25))
+    surf.blit(stamina_text, (sx + (s_w - stamina_text.get_width()) // 2, sy + 25))
 
-    loot_txt = font.render(f"LOOT COLLECTED: {player.score}", True, (255, 50, 50))
-    surf.blit(loot_txt, (60, 60))
-    
+
+    loot_txt = font.render(f"КОЛИЧЕСТВО ПРЕДМЕТОВ: {player.score}", True, (255, 50, 50))
     money_txt = money_font.render(f"${player.total_money_value:,}", True, (255, 50, 50))
-    surf.blit(money_txt, (60, 60 + loot_txt.get_height() + 5))
+    
+    lx, ly = 20, 20
+    
+    box_width = max(loot_txt.get_width(), money_txt.get_width()) + 20
+    box_height = loot_txt.get_height() + money_txt.get_height() + 20
+    bg_box = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+    bg_box.fill((0, 0, 0, 150))
+    
+    surf.blit(bg_box, (lx - 10, ly - 10))
+    
+    surf.blit(loot_txt, (lx, ly))
+    surf.blit(money_txt, (lx, ly + loot_txt.get_height() + 5))
+
 
     if game_state == "PANIC":
         sec = max(0, math.ceil(panic_timer / FPS))
         t_img = large_font.render(str(sec), True, (255, 50, 50))
-        surf.blit(t_img, (LOGICAL_WIDTH // 2 - t_img.get_width() // 2, 60))
+        surf.blit(t_img, (LOGICAL_WIDTH // 2 - t_img.get_width() // 2, 20))
 
 
 def run_game(level_id):
+    pygame.mouse.set_visible(False)
+    
     level_path = os.path.join(LEVELS_DIR, f'level_{level_id}.json')
     level = Level(level_path)
     
@@ -70,7 +101,8 @@ def run_game(level_id):
 
     while True:
         if not handle_game_events(player, level, guards, game_state): 
-            return 
+            pygame.mouse.set_visible(True)
+            return
 
         if game_state in ["STEALTH", "PANIC"]:
             keys = pygame.key.get_pressed()
@@ -105,7 +137,8 @@ def run_game(level_id):
                         game_state = "PANIC"
                     for noise in player.active_noises:
                         if math.hypot(noise['pos'][0] - g.rect.centerx, noise['pos'][1] - g.rect.centery) < noise['r']:
-                            game_state = "PANIC"
+                            if has_line_of_sight(noise['pos'], g.rect.center, level.walls):
+                                game_state = "PANIC"
 
             elif game_state == "PANIC":
                 panic_timer -= 1
@@ -140,17 +173,17 @@ def run_game(level_id):
         draw_ui(game_surface, player, game_state, panic_timer)
 
         if game_state == "WIN":
-            txt = large_font.render("MISSION SUCCESS", True, LOOT_COLOR)
+            txt = large_font.render("Миссия пройдена", True, LOOT_COLOR)
             game_surface.blit(txt, (LOGICAL_WIDTH//2 - txt.get_width()//2, LOGICAL_HEIGHT//2 - 100))
-            sub = font.render("Press ENTER to continue", True, UI_COLOR)
+            sub = font.render("Нажмите 'ENTER' для продолжения", True, UI_COLOR)
             game_surface.blit(sub, (LOGICAL_WIDTH//2 - sub.get_width()//2, LOGICAL_HEIGHT//2 + 50))
         elif game_state == "LOSE":
-            txt = large_font.render("BUSTED", True, (255, 50, 50))
+            txt = large_font.render("Провал", True, (255, 50, 50))
             game_surface.blit(txt, (LOGICAL_WIDTH//2 - txt.get_width()//2, LOGICAL_HEIGHT//2 - 100))
-            sub = font.render("Press ENTER to try again", True, UI_COLOR)
+            sub = font.render("Нажмите 'ENTER' для повторной попытки", True, UI_COLOR)
             game_surface.blit(sub, (LOGICAL_WIDTH//2 - sub.get_width()//2, LOGICAL_HEIGHT//2 + 50))
 
-        scaled_surf = pygame.transform.scale(game_surface, display_screen.get_size())
+        scaled_surf = pygame.transform.smoothscale(game_surface, display_screen.get_size())
         display_screen.blit(scaled_surf, (0, 0))
 
         pygame.display.flip()
@@ -234,14 +267,20 @@ def main_menu():
         editor_btn_h
     )
 
+    custom_btn_w = 5 * box_size + 4 * margin_x 
+    custom_btn_h = 60
+    custom_btn_rect = pygame.Rect(
+        LOGICAL_WIDTH // 2 - custom_btn_w // 2, 
+        start_y + 250, 
+        custom_btn_w, 
+        custom_btn_h
+    )
+
     menu_msg = ""
     msg_timer = 0
 
     while True:
         game_surface.blit(bg_image, (0, 0))
-        
-        logo = large_font.render("SHUSH", True, (255, 50, 50))
-        game_surface.blit(logo, (LOGICAL_WIDTH//2 - logo.get_width()//2, 120))
         
         mx, my = pygame.mouse.get_pos()
         screen_w, screen_h = display_screen.get_size()
@@ -263,16 +302,21 @@ def main_menu():
         ed_color = (200, 50, 50) if editor_btn_rect.collidepoint(logical_mx, logical_my) else (150, 40, 40)
         pygame.draw.rect(game_surface, ed_color, editor_btn_rect, border_radius=10)
         pygame.draw.rect(game_surface, (255, 255, 255), editor_btn_rect, 3, border_radius=10)
-        
-        ed_txt = ui_font.render("Нажмите 'P' или кликните для запуска редактора", True, (255, 255, 255))
+        ed_txt = ui_font.render("Запуск редактора", True, (255, 255, 255))
         game_surface.blit(ed_txt, (editor_btn_rect.centerx - ed_txt.get_width()//2, editor_btn_rect.centery - ed_txt.get_height()//2))
+
+        custom_color = (200, 200, 200) if custom_btn_rect.collidepoint(logical_mx, logical_my) else (255, 255, 255)
+        pygame.draw.rect(game_surface, custom_color, custom_btn_rect, border_radius=10)
+        pygame.draw.rect(game_surface, (50, 50, 50), custom_btn_rect, 4, border_radius=10) 
+        c_txt = font.render("Собственный уровень", True, (10, 10, 10)) 
+        game_surface.blit(c_txt, (custom_btn_rect.centerx - c_txt.get_width()//2, custom_btn_rect.centery - c_txt.get_height()//2))
 
         if msg_timer > 0:
             err_surf = font.render(menu_msg, True, (255, 50, 50))
             game_surface.blit(err_surf, (LOGICAL_WIDTH//2 - err_surf.get_width()//2, 320))
             msg_timer -= 1
 
-        scaled_surf = pygame.transform.scale(game_surface, display_screen.get_size())
+        scaled_surf = pygame.transform.smoothscale(game_surface, display_screen.get_size())
         display_screen.blit(scaled_surf, (0, 0))
         pygame.display.flip()
         
@@ -282,6 +326,7 @@ def main_menu():
                 sys.exit()
             
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                
                 for btn in level_buttons:
                     if btn["rect"].collidepoint(logical_mx, logical_my):
                         if os.path.exists(os.path.join(LEVELS_DIR, f"level_{btn['level']}.json")):
@@ -297,6 +342,13 @@ def main_menu():
                     except ImportError as e:
                         print(e)
 
+                if custom_btn_rect.collidepoint(logical_mx, logical_my):
+                    if os.path.exists(os.path.join(LEVELS_DIR, "level_custom.json")):
+                        run_game("custom")
+                    else:
+                        menu_msg = "Собственный уровень еще не создан!"
+                        msg_timer = 120
+
             if event.type == pygame.KEYDOWN:
                 if pygame.K_0 <= event.key <= pygame.K_9:
                     lvl = event.key - pygame.K_0
@@ -305,7 +357,7 @@ def main_menu():
                     if os.path.exists(os.path.join(LEVELS_DIR, f"level_{lvl}.json")):
                         run_game(lvl)
                     else:
-                        menu_msg = f"Уровень {lvl} еще не создан в редакторе!"
+                        menu_msg = f"Уровень {lvl} еще не создан!"
                         msg_timer = 120
                 
                 if event.key == pygame.K_F11:
