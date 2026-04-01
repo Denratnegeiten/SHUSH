@@ -45,6 +45,8 @@ class Player:
         self.is_hidden = False
         self.active_noises = []
         self.step_dist = 0
+        self.max_weight = 100
+        self.current_weight = 0
 
     def update(self, keys, walls, hiding_spots):
         up = keys[pygame.K_w] or keys[pygame.K_UP]
@@ -54,16 +56,21 @@ class Player:
         moving = any([up, down, left, right])
         
         speed, noise_r = 0, 0
+        
+        weight_factor = self.current_weight / max(1, self.max_weight)
+        speed_multiplier = 1.0 - (weight_factor * 0.5)
+        drain_multiplier = 1.0 + weight_factor
+        
         if moving:
             if keys[pygame.K_LCTRL]: 
-                speed = SPEED_SNEAK
+                speed = SPEED_SNEAK * speed_multiplier
                 self.stamina = min(STAMINA_MAX, self.stamina + STAMINA_REGEN)
             elif keys[pygame.K_LSHIFT] and not self.exhausted:
-                speed, noise_r = SPEED_RUN, 260
-                self.stamina -= STAMINA_DRAIN
+                speed, noise_r = SPEED_RUN * speed_multiplier, 260
+                self.stamina -= (STAMINA_DRAIN * drain_multiplier)
                 if self.stamina <= 0: self.exhausted = True
             else:
-                speed, noise_r = SPEED_WALK, 140
+                speed, noise_r = SPEED_WALK * speed_multiplier, 140
                 self.stamina = min(STAMINA_MAX, self.stamina + STAMINA_REGEN)
         else:
             self.stamina = min(STAMINA_MAX, self.stamina + STAMINA_REGEN)

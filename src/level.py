@@ -106,10 +106,12 @@ class Level:
             elif "vase" in filename:
                 obj['type'] = 'vase'
                 obj['value'] = 1000
+                obj['weight'] = 15
                 
             elif "picture" in filename:
                 obj['type'] = 'picture'
                 obj['value'] = 5000
+                obj['weight'] = 35
             
             elif "bush" in filename or "tree" in filename or "flower" in filename or "chair" in filename or "sofa" in filename or "couch" in filename or "bench" in filename:
                 obj['type'] = 'hiding_spot_passable'

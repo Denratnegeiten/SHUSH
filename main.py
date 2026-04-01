@@ -41,23 +41,34 @@ def draw_ui(surf, player, game_state, panic_timer):
     sx, sy = LOGICAL_WIDTH - s_w - 20, 20 
     
     stamina_text = ui_font.render("ВЫНОСЛИВОСТЬ", True, (255, 50, 50))
-    
     stam_box_w = max(s_w, stamina_text.get_width()) + 20
     stam_box_h = s_h + stamina_text.get_height() + 20
     stam_bg = pygame.Surface((stam_box_w, stam_box_h), pygame.SRCALPHA)
     stam_bg.fill((0, 0, 0, 150))
-    
     surf.blit(stam_bg, (sx - 10, sy - 10))
     
     pygame.draw.rect(surf, (40, 10, 10), (sx, sy, s_w, s_h))
     current_w = (player.stamina / STAMINA_MAX) * s_w
-    
     pygame.draw.rect(surf, (255, 50, 50), (sx, sy, current_w, s_h))
     pygame.draw.rect(surf, (255, 50, 50), (sx, sy, s_w, s_h), 3)
-    
     surf.blit(stamina_text, (sx + (s_w - stamina_text.get_width()) // 2, sy + 25))
 
-
+    wx, wy = LOGICAL_WIDTH - s_w - 20, 90
+    weight_color = (255, 200, 50)
+    weight_text = ui_font.render(f"ВЕС: {player.current_weight}/{player.max_weight} КГ", True, weight_color)
+    
+    weight_box_w = max(s_w, weight_text.get_width()) + 20
+    weight_box_h = s_h + weight_text.get_height() + 20
+    weight_bg = pygame.Surface((weight_box_w, weight_box_h), pygame.SRCALPHA)
+    weight_bg.fill((0, 0, 0, 150))
+    surf.blit(weight_bg, (wx - 10, wy - 10))
+    
+    pygame.draw.rect(surf, (40, 40, 10), (wx, wy, s_w, s_h))
+    current_weight_w = (player.current_weight / max(1, player.max_weight)) * s_w
+    pygame.draw.rect(surf, weight_color, (wx, wy, current_weight_w, s_h))
+    pygame.draw.rect(surf, weight_color, (wx, wy, s_w, s_h), 3)
+    surf.blit(weight_text, (wx + (s_w - weight_text.get_width()) // 2, wy + 25))
+    
     loot_txt = font.render(f"КОЛИЧЕСТВО ПРЕДМЕТОВ: {player.score}", True, (255, 50, 50))
     money_txt = money_font.render(f"${player.total_money_value:,}", True, (255, 50, 50))
     
@@ -163,7 +174,6 @@ def run_game(level_id):
             for b in g.bullets:
                 b.draw(game_surface, camera)
 
-        # Убрали дубликаты! Отрисовка идет строго один раз:
         game_surface.blit(transparent_surf, (0, 0))
 
         if game_state == "PANIC":
@@ -173,9 +183,8 @@ def run_game(level_id):
 
         draw_ui(game_surface, player, game_state, panic_timer)
 
-        # --- ОБНОВЛЕННЫЙ КОД ОТОБРАЖЕНИЯ ПОБЕДЫ ---
         if game_state == "WIN":
-            strip_height = 280 # Увеличили высоту черной полосы вниз и вверх
+            strip_height = 280
             strip_y = LOGICAL_HEIGHT // 2 - strip_height // 2
             
             pygame.draw.rect(game_surface, (0, 0, 0), (0, strip_y, LOGICAL_WIDTH, strip_height))
@@ -183,14 +192,12 @@ def run_game(level_id):
             txt = large_font.render("Миссия пройдена", True, (50, 255, 50))
             sub = font.render("Нажмите 'ENTER' для продолжения", True, (200, 200, 200))
             
-            # Идеальное центрирование текста внутри нашей новой широкой полосы
             total_text_h = txt.get_height() + 20 + sub.get_height()
             start_y = strip_y + (strip_height - total_text_h) // 2
             
             game_surface.blit(txt, (LOGICAL_WIDTH//2 - txt.get_width()//2, start_y))
             game_surface.blit(sub, (LOGICAL_WIDTH//2 - sub.get_width()//2, start_y + txt.get_height() + 20))
             
-        # --- ОБНОВЛЕННЫЙ КОД ОТОБРАЖЕНИЯ ПОРАЖЕНИЯ ---
         elif game_state == "LOSE":
             strip_height = 280
             strip_y = LOGICAL_HEIGHT // 2 - strip_height // 2
@@ -237,17 +244,20 @@ def handle_game_events(player, level, guards, game_state):
                 interaction_rect = player.rect.inflate(60, 60)
                 for obj in level.loot[:]:
                     if interaction_rect.colliderect(obj['rect']):
-                        level.loot.remove(obj)
+                        item_weight = obj.get('weight', 10)
                         
-                        if hasattr(level, 'level_data') and 'objects' in level.level_data:
-                            for level_obj in level.level_data['objects']:
-                                if level_obj['name'] == obj['name']:
-                                    level.level_data['objects'].remove(level_obj)
-                                    break
-                                    
-                        player.score += 1
-                        if 'value' in obj:
-                            player.total_money_value += obj['value']
+                        if player.current_weight + item_weight <= player.max_weight:
+                            level.loot.remove(obj)
+                            
+                            if hasattr(level, 'level_data') and 'objects' in level.level_data:
+                                if obj in level.level_data['objects']:
+                                    level.level_data['objects'].remove(obj)
+                                        
+                            player.score += 1
+                            if 'value' in obj: player.total_money_value += obj['value']
+                            player.current_weight += item_weight
+                        else:
+                            pass 
                         break
             
             if (game_state == "WIN" or game_state == "LOSE") and event.key == pygame.K_RETURN:
