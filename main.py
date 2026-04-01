@@ -163,6 +163,7 @@ def run_game(level_id):
             for b in g.bullets:
                 b.draw(game_surface, camera)
 
+        # Убрали дубликаты! Отрисовка идет строго один раз:
         game_surface.blit(transparent_surf, (0, 0))
 
         if game_state == "PANIC":
@@ -172,16 +173,38 @@ def run_game(level_id):
 
         draw_ui(game_surface, player, game_state, panic_timer)
 
+        # --- ОБНОВЛЕННЫЙ КОД ОТОБРАЖЕНИЯ ПОБЕДЫ ---
         if game_state == "WIN":
-            txt = large_font.render("Миссия пройдена", True, LOOT_COLOR)
-            game_surface.blit(txt, (LOGICAL_WIDTH//2 - txt.get_width()//2, LOGICAL_HEIGHT//2 - 100))
-            sub = font.render("Нажмите 'ENTER' для продолжения", True, UI_COLOR)
-            game_surface.blit(sub, (LOGICAL_WIDTH//2 - sub.get_width()//2, LOGICAL_HEIGHT//2 + 50))
+            strip_height = 280 # Увеличили высоту черной полосы вниз и вверх
+            strip_y = LOGICAL_HEIGHT // 2 - strip_height // 2
+            
+            pygame.draw.rect(game_surface, (0, 0, 0), (0, strip_y, LOGICAL_WIDTH, strip_height))
+            
+            txt = large_font.render("Миссия пройдена", True, (50, 255, 50))
+            sub = font.render("Нажмите 'ENTER' для продолжения", True, (200, 200, 200))
+            
+            # Идеальное центрирование текста внутри нашей новой широкой полосы
+            total_text_h = txt.get_height() + 20 + sub.get_height()
+            start_y = strip_y + (strip_height - total_text_h) // 2
+            
+            game_surface.blit(txt, (LOGICAL_WIDTH//2 - txt.get_width()//2, start_y))
+            game_surface.blit(sub, (LOGICAL_WIDTH//2 - sub.get_width()//2, start_y + txt.get_height() + 20))
+            
+        # --- ОБНОВЛЕННЫЙ КОД ОТОБРАЖЕНИЯ ПОРАЖЕНИЯ ---
         elif game_state == "LOSE":
-            txt = large_font.render("Провал", True, (255, 50, 50))
-            game_surface.blit(txt, (LOGICAL_WIDTH//2 - txt.get_width()//2, LOGICAL_HEIGHT//2 - 100))
-            sub = font.render("Нажмите 'ENTER' для повторной попытки", True, UI_COLOR)
-            game_surface.blit(sub, (LOGICAL_WIDTH//2 - sub.get_width()//2, LOGICAL_HEIGHT//2 + 50))
+            strip_height = 280
+            strip_y = LOGICAL_HEIGHT // 2 - strip_height // 2
+            
+            pygame.draw.rect(game_surface, (0, 0, 0), (0, strip_y, LOGICAL_WIDTH, strip_height))
+            
+            txt = large_font.render("Провал миссии", True, (255, 50, 50)) 
+            sub = font.render("Нажмите 'ENTER' для перезапуска", True, (200, 200, 200))
+            
+            total_text_h = txt.get_height() + 20 + sub.get_height()
+            start_y = strip_y + (strip_height - total_text_h) // 2
+            
+            game_surface.blit(txt, (LOGICAL_WIDTH//2 - txt.get_width()//2, start_y))
+            game_surface.blit(sub, (LOGICAL_WIDTH//2 - sub.get_width()//2, start_y + txt.get_height() + 20))
 
         scaled_surf = pygame.transform.smoothscale(game_surface, display_screen.get_size())
         display_screen.blit(scaled_surf, (0, 0))
