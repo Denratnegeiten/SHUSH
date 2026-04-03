@@ -1,6 +1,7 @@
 import pygame
 import json
 import os
+import math
 from src.settings import TILES_DIR, PROPS_DIR, CHARS_DIR
 
 class Level:
@@ -11,6 +12,8 @@ class Level:
         self.walls = []
         self.hiding_spots = []
         self.loot = []
+        self.doors = []
+        self.lasers = []
         
         self.level_data = self.load_data(level_path)
         
@@ -51,6 +54,8 @@ class Level:
         self.walls = []
         self.hiding_spots = []
         self.loot = []
+        self.doors = []
+        self.lasers = []
         
         map_data = self.level_data.get('map', [])
         max_rows = len(map_data)
@@ -137,8 +142,159 @@ class Level:
             elif obj['type'] == 'solid_decor':
                 self.walls.append(rect)
 
+        for d in self.level_data.get('doors', []):
+            x = int(d.get('x', 0))
+            y = int(d.get('y', 0))
+            w = int(d.get('w', 64))
+            h = int(d.get('h', 64))
+            locked = bool(d.get('locked', True))
+            requires_keycard = bool(d.get('requires_keycard', d.get('locked', False)))
+            rect = pygame.Rect(x, y, w, h)
+            door = {'rect': rect, 'locked': locked, 'requires_keycard': requires_keycard}
+            self.doors.append(door)
+            if locked:
+                self.walls.append(rect)
+
+        for lz in self.level_data.get('lasers', []):
+            x = float(lz.get('x', 0))
+            y = float(lz.get('y', 0))
+            angle_deg = float(lz.get('angle', 0))
+            max_distance = max(16, int(lz.get('length', 2400)))
+            on_duration = max(1, int(lz.get('on_duration', 120)))
+            off_duration = max(1, int(lz.get('off_duration', 90)))
+            phase = int(lz.get('phase', 0))
+            ex, ey = self._cast_laser_to_wall(x, y, angle_deg, max_distance)
+            self.lasers.append({
+                'x1': x,
+                'y1': y,
+                'x2': ex,
+                'y2': ey,
+                'angle': angle_deg,
+                'length': math.hypot(ex - x, ey - y),
+                'on_duration': on_duration,
+                'off_duration': off_duration,
+                'timer': phase % (on_duration + off_duration),
+                'active': (phase % (on_duration + off_duration)) < on_duration,
+            })
+
     def refresh_physics(self):
         pass
+
+    def _cast_laser_to_wall(self, x, y, angle_deg, max_distance):
+        angle_rad = math.radians(angle_deg)
+        dx = math.cos(angle_rad)
+        dy = math.sin(angle_rad)
+        step = 4
+
+        last_x, last_y = x, y
+        dist = 0
+        while dist < max_distance:
+            nx = x + dx * dist
+            ny = y + dy * dist
+            if any(w.collidepoint(nx, ny) for w in self.walls):
+                return last_x, last_y
+            last_x, last_y = nx, ny
+            dist += step
+
+        return x + dx * max_distance, y + dy * max_distance
+
+    def update_lasers(self):
+        for laser in self.lasers:
+            total = laser['on_duration'] + laser['off_duration']
+            laser['timer'] = (laser['timer'] + 1) % total
+            laser['active'] = laser['timer'] < laser['on_duration']
+
+    def draw_doors(self, screen, camera):
+        def draw_door_skin(rect, dark=False, unlocked=False):
+            if unlocked:
+                base = (82, 110, 82)
+                border = (150, 190, 150)
+                panel = (70, 95, 70)
+                handle = (215, 215, 150)
+            elif dark:
+                base = (62, 48, 42)
+                border = (115, 95, 82)
+                panel = (52, 38, 33)
+                handle = (185, 165, 105)
+            else:
+                base = (176, 142, 96)
+                border = (235, 210, 165)
+                panel = (156, 122, 80)
+                handle = (245, 225, 150)
+
+            pygame.draw.rect(screen, base, rect, border_radius=5)
+            pygame.draw.rect(screen, border, rect, 2, border_radius=5)
+
+            inset = max(4, rect.width // 10)
+            panel_rect = rect.inflate(-inset * 2, -inset * 2)
+            pygame.draw.rect(screen, panel, panel_rect, border_radius=4)
+            pygame.draw.rect(screen, border, panel_rect, 1, border_radius=4)
+
+            handle_x = panel_rect.right - max(5, rect.width // 8)
+            handle_y = panel_rect.centery
+            pygame.draw.circle(screen, handle, (handle_x, handle_y), max(2, rect.width // 16))
+
+        for door in self.doors:
+            door_rect = camera.apply(door['rect'])
+            if door['locked']:
+                draw_door_skin(door_rect, dark=door.get('requires_keycard', False), unlocked=False)
+            else:
+                draw_door_skin(door_rect, unlocked=True)
+
+    def try_toggle_nearby_door(self, player_rect, has_keycard=False, blockers=None):
+        interaction_rect = player_rect.inflate(90, 90)
+        blockers = blockers or []
+        candidates = [d for d in self.doors if interaction_rect.colliderect(d['rect'])]
+        candidates.sort(
+            key=lambda d: (d['rect'].centerx - player_rect.centerx) ** 2 + (d['rect'].centery - player_rect.centery) ** 2
+        )
+
+        for door in candidates:
+
+            # Opening
+            if door['locked']:
+                if door.get('requires_keycard', False) and not has_keycard:
+                    continue
+                door['locked'] = False
+                if door['rect'] in self.walls:
+                    self.walls.remove(door['rect'])
+                return True
+
+            # Closing (only if no one stands in doorway)
+            else:
+                if any(door['rect'].colliderect(b) for b in blockers):
+                    continue
+                door['locked'] = True
+                if door['rect'] not in self.walls:
+                    self.walls.append(door['rect'])
+                return True
+
+        return False
+
+    def draw_lasers(self, screen, camera):
+        for laser in self.lasers:
+            start = camera.apply_point((laser['x1'], laser['y1']))
+            end = camera.apply_point((laser['x2'], laser['y2']))
+
+            if laser['active']:
+                color = (255, 40, 40)
+                width = 3
+            else:
+                color = (120, 30, 30)
+                width = 1
+
+            pygame.draw.line(screen, color, start, end, width)
+            pygame.draw.circle(screen, (180, 180, 180), (int(start[0]), int(start[1])), 5)
+
+    def player_hits_active_laser(self, player_rect):
+        for laser in self.lasers:
+            if not laser['active']:
+                continue
+
+            if player_rect.clipline((laser['x1'], laser['y1']), (laser['x2'], laser['y2'])):
+                return True
+
+        return False
 
     def draw(self, screen, camera):
         screen_w, screen_h = screen.get_size()

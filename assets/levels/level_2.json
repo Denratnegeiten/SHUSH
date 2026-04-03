@@ -10459,31 +10459,88 @@
       "type": "swat",
       "x": 3042.0,
       "y": 3403.0,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "swat",
       "x": 3297.0,
       "y": 3407.0,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "normal",
       "x": 2744.0,
       "y": 3203.0,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "normal",
       "x": 3609.0,
       "y": 2989.0,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "camera",
       "x": 3036.888888888889,
       "y": 2899.3333333333335,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
+    }
+  ],
+  "doors": [
+    {
+      "x": 2944,
+      "y": 3328,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    },
+    {
+      "x": 3328,
+      "y": 3328,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    },
+    {
+      "x": 3648,
+      "y": 3072,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    },
+    {
+      "x": 2688,
+      "y": 3072,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    }
+  ],
+  "lasers": [
+    {
+      "x": 2879.0,
+      "y": 3044.0,
+      "angle": 180,
+      "on_duration": 120,
+      "off_duration": 90,
+      "phase": 0
+    },
+    {
+      "x": 3458.0,
+      "y": 3046.0,
+      "angle": 0,
+      "on_duration": 120,
+      "off_duration": 90,
+      "phase": 0
     }
   ]
 }

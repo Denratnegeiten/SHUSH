@@ -44,16 +44,72 @@ def run_editor():
         s = {k: pygame.transform.scale(img, (int(img.get_width()*z), int(img.get_height()*z))) for k, img in sprite_imgs.items()}
         return t, s
 
+    def tile_is_solid(tile_id):
+        if tile_id == -1:
+            return True
+        filename = tiles_dict.get(str(tile_id), "").lower()
+        return "wall" in filename
+
+    def cast_laser_to_wall(x, y, angle_deg, max_distance=2400):
+        angle_rad = math.radians(angle_deg)
+        dx = math.cos(angle_rad)
+        dy = math.sin(angle_rad)
+        step = 4
+        last_x, last_y = x, y
+        dist = 0
+
+        while dist < max_distance:
+            nx = x + dx * dist
+            ny = y + dy * dist
+            gx = int(nx // 64)
+            gy = int(ny // 64)
+
+            if not (0 <= gx < MAP_COLS and 0 <= gy < MAP_ROWS):
+                return last_x, last_y
+
+            if tile_is_solid(level_map[gy][gx]):
+                return last_x, last_y
+
+            last_x, last_y = nx, ny
+            dist += step
+
+        return x + dx * max_distance, y + dy * max_distance
+
+    def draw_editor_door_skin(target_surf, rect, dark=False):
+        if dark:
+            base = (62, 48, 42)
+            border = (115, 95, 82)
+            panel = (52, 38, 33)
+            handle = (185, 165, 105)
+        else:
+            base = (176, 142, 96)
+            border = (235, 210, 165)
+            panel = (156, 122, 80)
+            handle = (245, 225, 150)
+
+        pygame.draw.rect(target_surf, base, rect, border_radius=5)
+        pygame.draw.rect(target_surf, border, rect, max(1, int(2 * zoom)), border_radius=5)
+        inset = max(4, int(rect.width // 10))
+        panel_rect = rect.inflate(-inset * 2, -inset * 2)
+        pygame.draw.rect(target_surf, panel, panel_rect, border_radius=4)
+        pygame.draw.rect(target_surf, border, panel_rect, 1, border_radius=4)
+        handle_x = panel_rect.right - max(5, rect.width // 8)
+        handle_y = panel_rect.centery
+        pygame.draw.circle(target_surf, handle, (handle_x, handle_y), max(2, rect.width // 16))
+
     level_map = [[-1 for _ in range(MAP_COLS)] for _ in range(MAP_ROWS)]
     objects = []
     guards = []
+    doors = []
+    lasers = []
     entrance_pos = [64, 64]
 
-    modes = ['tiles', 'objects', 'guards', 'entrance']
+    modes = ['tiles', 'objects', 'guards', 'doors', 'lasers', 'entrance']
     mode_idx = 0
     tile_keys, sprite_keys = list(tiles_dict.keys()), list(sprites_dict.keys())
-    guard_types = ['normal', 'fast', 'taser', 'random', 'swat', 'camera']
-    guard_colors = {'normal': (100, 100, 255), 'fast': (255, 255, 0), 'taser': (255, 100, 100), 'random': (200, 0, 200), 'swat': (50, 50, 50), 'camera': (150, 150, 150)}
+    guard_types = ['normal', 'normal_keycard', 'fast', 'taser', 'random', 'swat', 'camera']
+    guard_colors = {'normal': (100, 100, 255), 'normal_keycard': (120, 220, 255), 'fast': (255, 255, 0), 'taser': (255, 100, 100), 'random': (200, 0, 200), 'swat': (50, 50, 50), 'camera': (150, 150, 150)}
+    laser_presets = [{'on_duration': 120, 'off_duration': 90}]
     c_idx = {'tiles': 0, 'objects': 0, 'guards': 0}
     
     current_angle = 90
@@ -105,12 +161,22 @@ def run_editor():
                     else:
                         screen = pygame.display.set_mode((1536, 768))
                 
-                if event.key == pygame.K_m: mode_idx = (mode_idx + 1) % 4
+                if event.key == pygame.K_m: mode_idx = (mode_idx + 1) % len(modes)
                 
                 if event.key == pygame.K_r:
                     current_angle = (current_angle + 90) % 360
                 
                 cur_mode = modes[mode_idx]
+                if event.key == pygame.K_k and cur_mode == 'guards':
+                    for g in reversed(guards):
+                        if math.hypot(world_x - g['pos'][0], world_y - g['pos'][1]) < 40:
+                            if g['type'] == 'normal_keycard':
+                                g['type'] = 'normal'
+                                g['has_keycard'] = False
+                            elif g['type'] == 'normal':
+                                g['type'] = 'normal_keycard'
+                                g['has_keycard'] = True
+                            break
                 if event.key == pygame.K_q and cur_mode in c_idx: 
                     c_idx[cur_mode] = max(0, c_idx[cur_mode] - 1)
                 if event.key == pygame.K_e and not ctrl_held and cur_mode in c_idx: 
@@ -164,7 +230,28 @@ def run_editor():
                                 guards.append({
                                     "type": g["type"], 
                                     "pos": [g.get("x", 0), g.get("y", 0)], 
-                                    "angle": g.get("angle", 90)
+                                    "angle": g.get("angle", 90),
+                                    "has_keycard": bool(g.get("has_keycard", False)) or g.get("type") == "normal_keycard",
+                                })
+                            doors = []
+                            for d in data.get("doors", []):
+                                doors.append({
+                                    "x": d.get("x", 0),
+                                    "y": d.get("y", 0),
+                                    "w": d.get("w", 64),
+                                    "h": d.get("h", 64),
+                                    "locked": bool(d.get("locked", True)),
+                                    "requires_keycard": bool(d.get("requires_keycard", d.get("locked", False))),
+                                })
+                            lasers = []
+                            for lz in data.get("lasers", []):
+                                lasers.append({
+                                    "x": lz.get("x", 0),
+                                    "y": lz.get("y", 0),
+                                    "angle": lz.get("angle", 0),
+                                    "on_duration": lz.get("on_duration", 120),
+                                    "off_duration": lz.get("off_duration", 90),
+                                    "phase": lz.get("phase", 0),
                                 })
                             entrance_pos = data.get("entrance_pos", [64, 64])
                             camera_x = (1536 // 2) - (entrance_pos[0] * zoom)
@@ -208,7 +295,27 @@ def run_editor():
                             for real_id, real_filename in sprites_dict.items():
                                 if real_filename == filename: obj["sprite_id"] = real_id; break
                                 
-                        guards = [{"type": g["type"], "pos": [g.get("x", 0), g.get("y", 0)]} for g in data.get("guards_data", [])]
+                        guards = [{"type": g["type"], "pos": [g.get("x", 0), g.get("y", 0)], "angle": g.get("angle", 90), "has_keycard": bool(g.get("has_keycard", False)) or g.get("type") == "normal_keycard"} for g in data.get("guards_data", [])]
+                        doors = []
+                        for d in data.get("doors", []):
+                            doors.append({
+                                "x": d.get("x", 0),
+                                "y": d.get("y", 0),
+                                "w": d.get("w", 64),
+                                "h": d.get("h", 64),
+                                "locked": bool(d.get("locked", True)),
+                                "requires_keycard": bool(d.get("requires_keycard", d.get("locked", False))),
+                            })
+                        lasers = []
+                        for lz in data.get("lasers", []):
+                            lasers.append({
+                                "x": lz.get("x", 0),
+                                "y": lz.get("y", 0),
+                                "angle": lz.get("angle", 0),
+                                "on_duration": lz.get("on_duration", 120),
+                                "off_duration": lz.get("off_duration", 90),
+                                "phase": lz.get("phase", 0),
+                            })
                         entrance_pos = data.get("entrance_pos", [64, 64])
                         camera_x = (1536 // 2) - (entrance_pos[0] * zoom)
                         camera_y = (768 // 2) - (entrance_pos[1] * zoom)
@@ -224,7 +331,8 @@ def run_editor():
                             "type": g["type"], 
                             "x": g["pos"][0], 
                             "y": g["pos"][1], 
-                            "angle": g.get("angle", 90)
+                            "angle": g.get("angle", 90),
+                            "has_keycard": bool(g.get("has_keycard", False)) or g.get("type") == "normal_keycard",
                         } for g in guards
                     ]
                     data = {
@@ -233,7 +341,9 @@ def run_editor():
                         "sprites": sprites_dict, 
                         "map": level_map, 
                         "objects": objects, 
-                        "guards_data": guards_data
+                        "guards_data": guards_data,
+                        "doors": doors,
+                        "lasers": lasers,
                     }
                     
                     filename = f"level_{current_level_id}.json"
@@ -260,10 +370,27 @@ def run_editor():
                         snap_x, snap_y = (round(world_x / 8) * 8, round(world_y / 8) * 8) if alt_held else (round(world_x / 32) * 32, round(world_y / 32) * 32)
                         objects.append({"name": f"obj_{len(objects)}", "sprite_id": spr_id, "pos": [snap_x, snap_y]})
                     elif cur_mode == 'guards': 
+                        selected_type = guard_types[c_idx['guards']]
                         guards.append({
-                            "type": guard_types[c_idx['guards']], 
+                            "type": selected_type, 
                             "pos": [world_x, world_y], 
-                            "angle": current_angle
+                            "angle": current_angle,
+                            "has_keycard": selected_type == 'normal_keycard',
+                        })
+                    elif cur_mode == 'doors':
+                        dx = grid_x * 64
+                        dy = grid_y * 64
+                        if not any(d['x'] == dx and d['y'] == dy for d in doors):
+                            doors.append({"x": dx, "y": dy, "w": 64, "h": 64, "locked": True, "requires_keycard": shift_held})
+                    elif cur_mode == 'lasers':
+                        preset = laser_presets[0]
+                        lasers.append({
+                            "x": world_x,
+                            "y": world_y,
+                            "angle": current_angle,
+                            "on_duration": preset["on_duration"],
+                            "off_duration": preset["off_duration"],
+                            "phase": 0,
                         })
                     elif cur_mode == 'entrance': entrance_pos = [grid_x * 64, grid_y * 64]
                 
@@ -285,6 +412,18 @@ def run_editor():
                         for g in reversed(guards):
                             if math.hypot(world_x - g['pos'][0], world_y - g['pos'][1]) < 30:
                                 guards.remove(g); break
+                    elif cur_mode == 'doors':
+                        for d in reversed(doors):
+                            if pygame.Rect(d['x'], d['y'], d.get('w', 64), d.get('h', 64)).collidepoint(world_x, world_y):
+                                doors.remove(d)
+                                break
+                    elif cur_mode == 'lasers':
+                        for lz in reversed(lasers):
+                            x1, y1 = lz.get("x", 0), lz.get("y", 0)
+                            x2, y2 = cast_laser_to_wall(x1, y1, lz.get("angle", 0))
+                            if pygame.Rect(min(x1, x2) - 8, min(y1, y2) - 8, abs(x2 - x1) + 16, abs(y2 - y1) + 16).clipline((x1, y1), (world_x, world_y)):
+                                lasers.remove(lz)
+                                break
 
             if event.type == pygame.MOUSEMOTION:
                 if dragging:
@@ -335,6 +474,19 @@ def run_editor():
                 
         for g in guards:
             pygame.draw.circle(screen, guard_colors[g['type']], (g['pos'][0]*zoom + camera_x, g['pos'][1]*zoom + camera_y), int(20*zoom))
+            if g.get('type') == 'normal_keycard' or g.get('has_keycard', False):
+                pygame.draw.circle(screen, (120, 220, 255), (int(g['pos'][0]*zoom + camera_x), int(g['pos'][1]*zoom + camera_y - 26*zoom)), max(3, int(6*zoom)))
+
+        for d in doors:
+            rect = pygame.Rect(d['x'] * zoom + camera_x, d['y'] * zoom + camera_y, d.get('w', 64) * zoom, d.get('h', 64) * zoom)
+            draw_editor_door_skin(screen, rect, dark=d.get('requires_keycard', False))
+
+        for lz in lasers:
+            x1 = lz.get("x", 0)
+            y1 = lz.get("y", 0)
+            x2, y2 = cast_laser_to_wall(x1, y1, lz.get("angle", 0))
+            pygame.draw.line(screen, (255, 40, 40), (x1 * zoom + camera_x, y1 * zoom + camera_y), (x2 * zoom + camera_x, y2 * zoom + camera_y), max(1, int(3 * zoom)))
+            pygame.draw.circle(screen, (180, 180, 180), (int(x1 * zoom + camera_x), int(y1 * zoom + camera_y)), max(2, int(5 * zoom)))
             
         ex, ey = entrance_pos[0]*zoom + camera_x, entrance_pos[1]*zoom + camera_y
         pygame.draw.rect(screen, (0, 255, 0), (ex, ey, 64*zoom, 64*zoom), max(1, int(4*zoom)))
@@ -371,11 +523,25 @@ def run_editor():
                 lx = cx + math.cos(rad) * 40 * zoom
                 ly = cy + math.sin(rad) * 40 * zoom
                 pygame.draw.line(screen, (255, 255, 255), (cx, cy), (lx, ly), 3)
+            elif cur_mode == 'doors':
+                rect = pygame.Rect(grid_x * 64 * zoom + camera_x, grid_y * 64 * zoom + camera_y, 64 * zoom, 64 * zoom)
+                draw_editor_door_skin(screen, rect, dark=shift_held)
+            elif cur_mode == 'lasers':
+                cx, cy = mx, my
+                wx = (cx - camera_x) / zoom
+                wy = (cy - camera_y) / zoom
+                end_x, end_y = cast_laser_to_wall(wx, wy, current_angle)
+                lx = end_x * zoom + camera_x
+                ly = end_y * zoom + camera_y
+                pygame.draw.line(screen, (255, 80, 80), (cx, cy), (lx, ly), max(1, int(3 * zoom)))
+                pygame.draw.circle(screen, (180, 180, 180), (int(cx), int(cy)), max(2, int(5 * zoom)))
                 
         txt = ""
         if cur_mode == 'tiles': txt = f"Тайтлы | {tiles_dict[tile_keys[c_idx['tiles']]]} | ЛКМ: Кисть | ПКМ: Ластик | SHIFT: Заливка"
         elif cur_mode == 'objects': txt = f"Объекты | {sprites_dict[sprite_keys[c_idx['objects']]]} | Зажми ALT для точной установки"
-        elif cur_mode == 'guards': txt = f"Полиция | {guard_types[c_idx['guards']]} | ЛКМ/ПКМ"
+        elif cur_mode == 'guards': txt = f"Полиция | {guard_types[c_idx['guards']]} | ЛКМ/ПКМ | K: normal <-> normal_keycard"
+        elif cur_mode == 'doors': txt = "Двери | ЛКМ: обычная | SHIFT+ЛКМ: по ключ-карте | ПКМ: удалить"
+        elif cur_mode == 'lasers': txt = f"Лазеры | Авто до стены | ON {laser_presets[0]['on_duration']} OFF {laser_presets[0]['off_duration']} | R: Поворот | ЛКМ/ПКМ"
         elif cur_mode == 'entrance': txt = "Точка спавна | ЛКМ: Поставить точку"
 
         status_txt = f"[M] Режим: {txt} | РЕДАКТИРУЕМ: level_{current_level_id}.json | CTRL+S: Сохранить"

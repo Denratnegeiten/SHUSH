@@ -71,11 +71,12 @@ def draw_ui(surf, player, game_state, panic_timer):
     
     loot_txt = font.render(f"КОЛИЧЕСТВО ПРЕДМЕТОВ: {player.score}", True, (255, 50, 50))
     money_txt = money_font.render(f"${player.total_money_value:,}", True, (255, 50, 50))
+    card_txt = ui_font.render(f"КЛЮЧ-КАРТА: {'ЕСТЬ' if player.has_keycard else 'НЕТ'}", True, (120, 220, 255))
     
     lx, ly = 20, 20
     
-    box_width = max(loot_txt.get_width(), money_txt.get_width()) + 20
-    box_height = loot_txt.get_height() + money_txt.get_height() + 20
+    box_width = max(loot_txt.get_width(), money_txt.get_width(), card_txt.get_width()) + 20
+    box_height = loot_txt.get_height() + money_txt.get_height() + card_txt.get_height() + 25
     bg_box = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
     bg_box.fill((0, 0, 0, 150))
     
@@ -83,6 +84,7 @@ def draw_ui(surf, player, game_state, panic_timer):
     
     surf.blit(loot_txt, (lx, ly))
     surf.blit(money_txt, (lx, ly + loot_txt.get_height() + 5))
+    surf.blit(card_txt, (lx, ly + loot_txt.get_height() + money_txt.get_height() + 10))
 
 
     if game_state == "PANIC":
@@ -108,8 +110,14 @@ def run_game(level_id):
         if g['type'] == 'camera':
             cameras.append(SecurityCamera(g.get('x', 0), g.get('y', 0), g.get('angle', 90)))
         elif g['type'] != 'swat':
-            new_guard = Guard(g['type'], g.get('x', 0), g.get('y', 0), g.get('waypoints'), g.get('bounds'))
+            guard_type = g['type']
+            has_keycard = bool(g.get('has_keycard', False))
+            if guard_type == 'normal_keycard':
+                guard_type = 'normal'
+                has_keycard = True
+            new_guard = Guard(guard_type, g.get('x', 0), g.get('y', 0), g.get('waypoints'), g.get('bounds'))
             new_guard.angle = math.radians(g.get('angle', 90))
+            new_guard.has_keycard = has_keycard
             guards.append(new_guard)
     
     transparent_surf = pygame.Surface((LOGICAL_WIDTH, LOGICAL_HEIGHT), pygame.SRCALPHA)
@@ -129,6 +137,7 @@ def run_game(level_id):
             obstacles = level.walls + level.hiding_spots
             
             player.update(keys, level.walls, level.hiding_spots)
+            level.update_lasers()
             camera.update(player.rect)
             
             if player.rect.colliderect(level.entrance_rect) and player.score > 0:
@@ -155,10 +164,13 @@ def run_game(level_id):
                 c.update()
 
             if game_state == "STEALTH":
+                if level.player_hits_active_laser(player.rect) and not player.is_hidden:
+                    game_state = "PANIC"
+
                 for c in cameras:
                     if check_vision(player.rect, player.is_hidden, c.rect, c.angle, c.vision_range, c.vision_fov, level.walls):
                         game_state = "PANIC"
-
+            
                 for g in guards:
                     if check_vision(player.rect, player.is_hidden, g.rect, g.angle, 450, 1.2, level.walls):
                         game_state = "PANIC"
@@ -182,6 +194,8 @@ def run_game(level_id):
         transparent_surf.fill((0, 0, 0, 0))
         
         level.draw(game_surface, camera)
+        level.draw_doors(game_surface, camera)
+        level.draw_lasers(game_surface, camera)
         player.draw(game_surface, transparent_surf, camera)
         
         for g in guards:
@@ -262,6 +276,23 @@ def handle_game_events(player, level, guards, game_state):
                     game_surface = pygame.Surface((LOGICAL_WIDTH, LOGICAL_HEIGHT))
             
             if event.key == pygame.K_e and game_state in ["STEALTH", "PANIC"]:
+                for guard in guards:
+                    if not getattr(guard, 'has_keycard', False):
+                        continue
+                    if math.hypot(player.rect.centerx - guard.rect.centerx, player.rect.centery - guard.rect.centery) > 90:
+                        continue
+
+                    angle_to_player = math.atan2(player.rect.centery - guard.rect.centery, player.rect.centerx - guard.rect.centerx)
+                    angle_delta = (angle_to_player - guard.angle + math.pi) % (2 * math.pi) - math.pi
+                    if abs(angle_delta) >= 2.1:
+                        guard.has_keycard = False
+                        player.has_keycard = True
+                        return True
+
+                door_blockers = [player.rect] + [g.rect for g in guards]
+                if level.try_toggle_nearby_door(player.rect, player.has_keycard, door_blockers):
+                    return True
+
                 interaction_rect = player.rect.inflate(60, 60)
                 for obj in level.loot[:]:
                     if interaction_rect.colliderect(obj['rect']):

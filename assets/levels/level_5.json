@@ -10507,43 +10507,93 @@
       "type": "normal",
       "x": 2549.1190476190473,
       "y": 3314.7023809523807,
-      "angle": 90
-    },
-    {
-      "type": "normal",
-      "x": 3911.6190476190473,
-      "y": 3024.7023809523807,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "taser",
       "x": 2902.8690476190473,
       "y": 2998.4523809523807,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "swat",
       "x": 3166.6190476190473,
       "y": 3490.9523809523807,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "swat",
       "x": 3292.8690476190473,
       "y": 3488.4523809523807,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "camera",
       "x": 2387.1111111111113,
       "y": 3022.6666666666665,
-      "angle": 0
+      "angle": 0,
+      "has_keycard": false
     },
     {
       "type": "camera",
       "x": 3134.8888888888887,
       "y": 2901.5555555555557,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
+    },
+    {
+      "type": "normal_keycard",
+      "x": 3911.0,
+      "y": 3032.0,
+      "angle": 0,
+      "has_keycard": true
     }
-  ]
+  ],
+  "doors": [
+    {
+      "x": 3136,
+      "y": 3392,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    },
+    {
+      "x": 3200,
+      "y": 3392,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    },
+    {
+      "x": 3264,
+      "y": 3392,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    },
+    {
+      "x": 3584,
+      "y": 3136,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    },
+    {
+      "x": 2752,
+      "y": 3136,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": true
+    }
+  ],
+  "lasers": []
 }

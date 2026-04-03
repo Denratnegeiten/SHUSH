@@ -10491,37 +10491,71 @@
       "type": "normal",
       "x": 2613.1269841269836,
       "y": 3139.6507936507933,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "random",
       "x": 3324.555555555555,
       "y": 3426.79365079365,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "swat",
       "x": 3031.6984126984125,
       "y": 2911.079365079365,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "swat",
       "x": 3168.8412698412694,
       "y": 2906.7936507936506,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "camera",
       "x": 3218.222222222222,
       "y": 3163.333333333333,
-      "angle": 0
+      "angle": 0,
+      "has_keycard": false
     },
     {
       "type": "camera",
       "x": 3106.0,
       "y": 3496.6666666666665,
-      "angle": 270
+      "angle": 270,
+      "has_keycard": false
+    }
+  ],
+  "doors": [
+    {
+      "x": 3072,
+      "y": 2944,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    }
+  ],
+  "lasers": [
+    {
+      "x": 3648.0,
+      "y": 3295.0,
+      "angle": 0,
+      "on_duration": 120,
+      "off_duration": 90,
+      "phase": 0
+    },
+    {
+      "x": 2556.0,
+      "y": 3297.0,
+      "angle": 180,
+      "on_duration": 120,
+      "off_duration": 90,
+      "phase": 0
     }
   ]
 }

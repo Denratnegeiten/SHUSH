@@ -42,6 +42,7 @@ class Player:
         self.exhausted = False
         self.slow_timer = 0
         self.score = 0
+        self.has_keycard = False
         self.is_hidden = False
         self.active_noises = []
         self.step_dist = 0
@@ -149,6 +150,7 @@ class Guard:
         self.type = g_type
         self.rect = pygame.Rect(x, y, 40, 40)
         self.x, self.y = float(x), float(y)
+        self.has_keycard = False
         
         self.speed = 2.0
         self.vision_range = 450

@@ -11155,121 +11155,241 @@
       "type": "normal",
       "x": 1522.0,
       "y": 2637.6666666666674,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "normal",
       "x": 4984.499999999999,
       "y": 2625.1666666666674,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "fast",
       "x": 2431.9999999999995,
       "y": 2632.6666666666674,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "fast",
       "x": 4091.999999999999,
       "y": 2647.6666666666674,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "fast",
       "x": 3079.4999999999995,
       "y": 3117.666666666667,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "taser",
       "x": 1879.4999999999998,
       "y": 3575.166666666667,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "taser",
       "x": 4651.999999999999,
       "y": 3617.666666666667,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "random",
       "x": 3549.499999999999,
       "y": 3100.166666666667,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "random",
       "x": 2756.9999999999995,
       "y": 3090.166666666667,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "random",
       "x": 3139.4999999999995,
       "y": 2612.6666666666674,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "swat",
       "x": 3174.4999999999995,
       "y": 3870.166666666667,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "swat",
       "x": 3289.4999999999995,
       "y": 3865.166666666667,
-      "angle": 90
-    },
-    {
-      "type": "swat",
-      "x": 3164.4999999999995,
-      "y": 3800.166666666667,
-      "angle": 90
-    },
-    {
-      "type": "swat",
-      "x": 3294.4999999999995,
-      "y": 3795.166666666667,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "camera",
       "x": 2980.8333333333344,
       "y": 3599.333333333334,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "camera",
       "x": 3135.8333333333344,
       "y": 3026.833333333334,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "camera",
       "x": 1760.8333333333348,
       "y": 2516.8333333333344,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "camera",
       "x": 4570.833333333334,
       "y": 2514.3333333333344,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "camera",
       "x": 2408.3333333333344,
       "y": 3136.833333333334,
-      "angle": 180
+      "angle": 180,
+      "has_keycard": false
     },
     {
       "type": "camera",
       "x": 3855.833333333334,
       "y": 3131.833333333334,
-      "angle": 0
+      "angle": 0,
+      "has_keycard": false
+    },
+    {
+      "type": "normal_keycard",
+      "x": 4286.500000000001,
+      "y": 3112.0000000000005,
+      "angle": 180,
+      "has_keycard": true
+    },
+    {
+      "type": "normal_keycard",
+      "x": 1560.5000000000014,
+      "y": 3646.0000000000005,
+      "angle": 180,
+      "has_keycard": true
+    }
+  ],
+  "doors": [
+    {
+      "x": 3264,
+      "y": 3776,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    },
+    {
+      "x": 3200,
+      "y": 3776,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    },
+    {
+      "x": 3136,
+      "y": 3776,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    },
+    {
+      "x": 2688,
+      "y": 3200,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": true
+    },
+    {
+      "x": 2752,
+      "y": 3200,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": true
+    },
+    {
+      "x": 3456,
+      "y": 3200,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": true
+    },
+    {
+      "x": 3520,
+      "y": 3200,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": true
+    }
+  ],
+  "lasers": [
+    {
+      "x": 2696.5000000000014,
+      "y": 3544.0000000000005,
+      "angle": 0,
+      "on_duration": 120,
+      "off_duration": 90,
+      "phase": 0
+    },
+    {
+      "x": 3574.500000000001,
+      "y": 3548.0000000000005,
+      "angle": 180,
+      "on_duration": 120,
+      "off_duration": 90,
+      "phase": 0
+    },
+    {
+      "x": 3846.500000000001,
+      "y": 3472.0000000000005,
+      "angle": 0,
+      "on_duration": 120,
+      "off_duration": 90,
+      "phase": 0
+    },
+    {
+      "x": 3840.500000000001,
+      "y": 2772.000000000001,
+      "angle": 0,
+      "on_duration": 120,
+      "off_duration": 90,
+      "phase": 0
+    },
+    {
+      "x": 2430.5000000000014,
+      "y": 2774.000000000001,
+      "angle": 180,
+      "on_duration": 120,
+      "off_duration": 90,
+      "phase": 0
     }
   ]
 }

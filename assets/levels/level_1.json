@@ -10403,25 +10403,48 @@
       "type": "normal",
       "x": 3456,
       "y": 3136,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "swat",
       "x": 3104.6944444444453,
       "y": 3475.75,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "swat",
       "x": 3235.6944444444453,
       "y": 3473.75,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     },
     {
       "type": "camera",
       "x": 2915.6969696969695,
       "y": 3025.1944444444443,
-      "angle": 90
+      "angle": 90,
+      "has_keycard": false
     }
-  ]
+  ],
+  "doors": [
+    {
+      "x": 2880,
+      "y": 3200,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    },
+    {
+      "x": 3136,
+      "y": 3392,
+      "w": 64,
+      "h": 64,
+      "locked": true,
+      "requires_keycard": false
+    }
+  ],
+  "lasers": []
 }
